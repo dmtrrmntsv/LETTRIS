@@ -1,0 +1,16 @@
+{
+  "name": "lettris",
+  "version": "1.0.0",
+  "main": "cleanDictionary.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "iconv-lite": "^0.6.3",
+    "lemmer": "^0.3.0"
+  }
+}
