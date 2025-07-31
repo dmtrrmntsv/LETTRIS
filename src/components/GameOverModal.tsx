@@ -97,4 +97,13 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ isOpen, onClose }) => {
               variant="ghost"
               className="w-full"
             >
-              Закр
+              Закрыть
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+};
+
+export default GameOverModal;
