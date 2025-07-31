@@ -4,6 +4,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 interface Cell {
   letter: string | null;
   isFixed: boolean;
+  isHovered: boolean;
 }
 
 interface Figure {
@@ -22,6 +23,7 @@ interface GameState {
   highScores: number[];
   gameOver: boolean;
   isInitialized: boolean;
+  hoveredCells: Array<{ row: number; col: number }>;
   
   // Actions
   init: () => void;
@@ -32,52 +34,68 @@ interface GameState {
   resetGame: () => void;
   saveToCloud: () => void;
   loadFromCloud: () => void;
+  setHoveredCells: (cells: Array<{ row: number; col: number }>) => void;
+  clearHoveredCells: () => void;
 }
 
+// Improved letter frequency based on Russian language analysis
 const LETTER_WEIGHTS = [
-  'о','о','о','о','о','о','о','о','о','о','о',
-  'а','а','а','а','а','а','а','а',
-  'е','е','е','е','е','е','е',
-  'и','и','и','и','и','и',
-  'н','н','н','н','н',
-  'т','т','т','т',
-  'с','с','с','с',
-  'р','р','р',
-  'в','в','в',
-  'л','л','л',
-  'к','к',
-  'м','м',
-  'д','д',
-  'п','п',
-  'у','у',
-  'я','я',
-  'ы','ы',
-  'ь','ь',
-  'г','г',
-  'з','з',
-  'б','б',
+  // Самые частые буквы (встречаются очень часто)
+  'о','о','о','о','о','о','о','о','о','о','о','о','о','о','о',
+  'а','а','а','а','а','а','а','а','а','а','а','а',
+  'е','е','е','е','е','е','е','е','е','е','е',
+  'и','и','и','и','и','и','и','и','и','и',
+  'н','н','н','н','н','н','н','н','н',
+  'т','т','т','т','т','т','т','т',
+  'с','с','с','с','с','с','с','с',
+  'р','р','р','р','р','р','р',
+  'в','в','в','в','в','в',
+  'л','л','л','л','л','л',
+  'к','к','к','к','к',
+  'м','м','м','м','м',
+  'д','д','д','д','д',
+  'п','п','п','п',
+  'у','у','у','у',
+  'я','я','я','я',
+  'ы','ы','ы',
+  'ь','ь','ь',
+  'г','г','г',
+  'з','з','з',
+  'б','б','б',
   'ч','ч',
   'й','й',
   'х','х',
   'ж','ж',
   'ш','ш',
   'ю','ю',
-  'ц','ц',
-  'щ','щ',
-  'э','э',
-  'ф','ф',
-  'ё','ё',
-  'ъ','ъ'
+  // Редкие буквы (встречаются редко)
+  'ц',
+  'щ',
+  'э',
+  'ф',
+  'ё',
+  'ъ'
 ];
 
+// Более разнообразные формы фигур
 const SHAPES = [
-  [[0,0],[0,1],[0,2]], // I-shape
-  [[0,0],[0,1],[1,0],[1,1]], // O-shape
-  [[0,0],[0,1],[0,2],[1,1]], // T-shape
-  [[0,0],[0,1],[0,2],[1,0]], // L-shape
-  [[0,0],[0,1],[0,2],[1,2]], // J-shape
-  [[0,0],[0,1],[1,1],[1,2]], // S-shape
-  [[0,1],[0,2],[1,0],[1,1]], // Z-shape
+  [[0,0]], // Одиночный блок
+  [[0,0],[0,1]], // Два горизонтально
+  [[0,0],[1,0]], // Два вертикально
+  [[0,0],[0,1],[0,2]], // Три горизонтально
+  [[0,0],[1,0],[2,0]], // Три вертикально
+  [[0,0],[0,1],[1,0]], // L-форма маленькая
+  [[0,0],[0,1],[1,1]], // L-форма отраженная
+  [[0,0],[1,0],[1,1]], // L-форма повернутая
+  [[0,1],[1,0],[1,1]], // L-форма повернутая 2
+  [[0,0],[0,1],[0,2],[1,0]], // L-форма большая
+  [[0,0],[0,1],[0,2],[1,2]], // J-форма
+  [[0,0],[0,1],[1,0],[1,1]], // Квадрат
+  [[0,0],[0,1],[1,1],[1,2]], // S-форма
+  [[0,1],[0,2],[1,0],[1,1]], // Z-форма
+  [[0,0],[0,1],[0,2],[1,1]], // T-форма
+  [[0,0],[0,1],[1,0],[2,0]], // Угол
+  [[0,0],[1,0],[1,1],[2,1]], // Ступенька
 ];
 
 function generateFigure(): Figure {
@@ -98,7 +116,7 @@ function generateQueue(): Figure[] {
 
 function createEmptyGrid(): Cell[][] {
   return Array(6).fill(null).map(() => 
-    Array(6).fill(null).map(() => ({ letter: null, isFixed: false }))
+    Array(6).fill(null).map(() => ({ letter: null, isFixed: false, isHovered: false }))
   );
 }
 
@@ -113,6 +131,7 @@ export const useGameStore = create<GameState>()(
     highScores: [],
     gameOver: false,
     isInitialized: false,
+    hoveredCells: [],
 
     init: () => {
       if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
@@ -122,9 +141,28 @@ export const useGameStore = create<GameState>()(
       set({ isInitialized: true });
     },
 
+    setHoveredCells: (cells: Array<{ row: number; col: number }>) => {
+      const state = get();
+      const newGrid = state.grid.map(row => row.map(cell => ({ ...cell, isHovered: false })));
+      
+      cells.forEach(({ row, col }) => {
+        if (row >= 0 && row < 6 && col >= 0 && col < 6) {
+          newGrid[row][col].isHovered = true;
+        }
+      });
+      
+      set({ grid: newGrid, hoveredCells: cells });
+    },
+
+    clearHoveredCells: () => {
+      const state = get();
+      const newGrid = state.grid.map(row => row.map(cell => ({ ...cell, isHovered: false })));
+      set({ grid: newGrid, hoveredCells: [] });
+    },
+
     placeFigure: (figure: Figure, position: { row: number; col: number }, rotation: number) => {
       const state = get();
-      const newGrid = state.grid.map(row => row.map(cell => ({ ...cell })));
+      const newGrid = state.grid.map(row => row.map(cell => ({ ...cell, isHovered: false })));
       
       // Check if placement is valid
       for (let i = 0; i < figure.shape.length; i++) {
@@ -149,7 +187,8 @@ export const useGameStore = create<GameState>()(
         
         newGrid[gridRow][gridCol] = {
           letter: figure.letters[i],
-          isFixed: true
+          isFixed: true,
+          isHovered: false
         };
       }
       
@@ -160,7 +199,8 @@ export const useGameStore = create<GameState>()(
       set({ 
         grid: newGrid, 
         queue: newQueue,
-        score: state.score + 10 
+        score: state.score + 10,
+        hoveredCells: []
       });
       
       get().saveToCloud();
@@ -209,7 +249,8 @@ export const useGameStore = create<GameState>()(
         grid: createEmptyGrid(),
         queue: generateQueue(),
         score: 0,
-        gameOver: false
+        gameOver: false,
+        hoveredCells: []
       });
     },
 
