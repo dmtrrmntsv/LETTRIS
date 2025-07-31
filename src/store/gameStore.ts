@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import { applyGravity } from '../utils/dictionary'; // Import applyGravity
 
 interface Cell {
   letter: string | null;
@@ -13,6 +14,12 @@ interface Figure {
   id: string;
 }
 
+interface SelectedLetter {
+  row: number;
+  col: number;
+  letter: string;
+}
+
 interface GameState {
   grid: Cell[][];
   queue: Figure[];
@@ -24,6 +31,8 @@ interface GameState {
   gameOver: boolean;
   isInitialized: boolean;
   hoveredCells: Array<{ row: number; col: number }>;
+  selectedLetters: SelectedLetter[];
+  currentWord: string;
   
   // Actions
   init: () => void;
@@ -36,6 +45,9 @@ interface GameState {
   loadFromCloud: () => void;
   setHoveredCells: (cells: Array<{ row: number; col: number }>) => void;
   clearHoveredCells: () => void;
+  addSelectedLetter: (letter: SelectedLetter) => void;
+  clearSelection: () => void;
+  submitWord: (word: string) => void;
 }
 
 // Improved letter frequency based on Russian language analysis
@@ -132,6 +144,58 @@ export const useGameStore = create<GameState>()(
     gameOver: false,
     isInitialized: false,
     hoveredCells: [],
+    selectedLetters: [],
+    currentWord: '',
+
+    addSelectedLetter: (letter: SelectedLetter) => {
+      const state = get();
+      const isAlreadySelected = state.selectedLetters.some(
+        sel => sel.row === letter.row && sel.col === letter.col
+      );
+      
+      if (isAlreadySelected) return;
+      
+      const newSelectedLetters = [...state.selectedLetters, letter];
+      const newWord = newSelectedLetters.map(sel => sel.letter).join('').toLowerCase();
+      
+      set({ 
+        selectedLetters: newSelectedLetters,
+        currentWord: newWord
+      });
+    },
+
+    clearSelection: () => {
+      set({ 
+        selectedLetters: [],
+        currentWord: ''
+      });
+    },
+
+    submitWord: (word: string) => {
+      const state = get();
+      
+      // Calculate score based on word length and complexity
+      const score = word.length * 10 + (word.length > 5 ? 20 : 0);
+      
+      // Remove selected letters from grid
+      const newGrid = state.grid.map(row => row.map(cell => ({ ...cell })));
+      
+      state.selectedLetters.forEach(({ row, col }) => {
+        newGrid[row][col] = { letter: null, isFixed: false, isHovered: false };
+      });
+      
+      // Apply gravity
+      const finalGrid = applyGravity(newGrid);
+      
+      set({
+        grid: finalGrid,
+        selectedLetters: [],
+        currentWord: '',
+        score: state.score + score
+      });
+      
+      get().saveToCloud();
+    },
 
     init: () => {
       if (typeof window !== 'undefined' && window.Telegram?.WebApp) {

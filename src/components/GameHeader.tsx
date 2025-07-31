@@ -1,46 +1,61 @@
-import React, { useState } from 'react';
-import { useGameStore } from '../store/gameStore';
+import React from 'react';
+import { motion } from 'framer-motion';
 import { Heart, Coins, Trophy } from 'lucide-react';
-import LivesModal from './LivesModal';
+import { useGameStore } from '../store/gameStore';
 
 const GameHeader: React.FC = () => {
-  const { score, lives, coins } = useGameStore();
-  const [showLivesModal, setShowLivesModal] = useState(false);
+  const { lives, coins, score } = useGameStore();
 
   return (
-    <>
-      <div className="flex justify-between items-center p-4 bg-white/10 backdrop-blur-md border-b border-white/20">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2 px-4 py-2 bg-yellow-500/20 rounded-full backdrop-blur-sm border border-yellow-400/30">
-            <Trophy className="w-5 h-5 text-yellow-300" />
-            <span className="font-bold text-lg text-white">{score}</span>
-          </div>
+    <motion.header 
+      initial={{ y: -50, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      className="flex items-center justify-between px-4 py-3 bg-[var(--tg-theme-section-bg-color)] border-b border-white/10"
+      style={{ backgroundColor: 'var(--tg-theme-section-bg-color)' }}
+    >
+      {/* Left: Logo & Title */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--ton-gradient-start)] to-[var(--ton-gradient-end)] flex items-center justify-center">
+          <Trophy className="w-4 h-4 text-white" />
         </div>
-        
-        <div className="flex items-center space-x-3">
-          <button
-            onClick={() => setShowLivesModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-red-500/20 rounded-full hover:bg-red-500/30 transition-all duration-200 backdrop-blur-sm border border-red-400/30"
-          >
-            <Heart className="w-4 h-4 text-red-300" />
-            <span className="text-red-100 font-medium">{lives}</span>
-          </button>
-          
-          <button
-            onClick={() => setShowLivesModal(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-yellow-500/20 rounded-full hover:bg-yellow-500/30 transition-all duration-200 backdrop-blur-sm border border-yellow-400/30"
-          >
-            <Coins className="w-4 h-4 text-yellow-300" />
-            <span className="text-yellow-100 font-medium">{coins}</span>
-          </button>
-        </div>
+        <h1 
+          className="text-lg font-bold"
+          style={{ color: 'var(--tg-theme-text-color)' }}
+        >
+          Словотетрис
+        </h1>
       </div>
 
-      <LivesModal 
-        isOpen={showLivesModal} 
-        onClose={() => setShowLivesModal(false)} 
-      />
-    </>
+      {/* Right: Lives & Balance Combined */}
+      <motion.div 
+        className="flex items-center gap-3 px-3 py-2 rounded-xl ton-glass cursor-pointer touch-friendly"
+        whileTap={{ scale: 0.95 }}
+        onClick={() => {
+          // Open lives modal
+          if ('vibrate' in navigator) navigator.vibrate(10);
+        }}
+      >
+        <div className="flex items-center gap-1">
+          <Heart className="w-4 h-4 text-red-400" />
+          <span 
+            className="text-sm font-semibold"
+            style={{ color: 'var(--tg-theme-text-color)' }}
+          >
+            {lives}
+          </span>
+        </div>
+        <div className="w-px h-4 bg-white/20" />
+        <div className="flex items-center gap-1">
+          <Coins className="w-4 h-4" style={{ color: 'var(--ton-main)' }} />
+          <span 
+            className="text-sm font-semibold"
+            style={{ color: 'var(--tg-theme-text-color)' }}
+          >
+            {coins}
+          </span>
+        </div>
+      </motion.div>
+    </motion.header>
   );
 };
 
