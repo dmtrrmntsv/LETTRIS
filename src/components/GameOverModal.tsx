@@ -43,7 +43,6 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ isOpen, onClose }) => {
         </CardHeader>
         
         <CardContent className="space-y-6 text-center">
-          {/* Score Display */}
           <div className="p-6 bg-blue-50 rounded-lg">
             <div className="flex items-center justify-center space-x-2 mb-2">
               <Trophy className="w-6 h-6 text-yellow-500" />
@@ -55,7 +54,6 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ isOpen, onClose }) => {
             )}
           </div>
 
-          {/* Best Score */}
           {bestScore > 0 && (
             <div className="text-center">
               <div className="text-sm text-gray-600">Лучший результат</div>
@@ -63,7 +61,6 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ isOpen, onClose }) => {
             </div>
           )}
 
-          {/* Action Buttons */}
           <div className="space-y-3">
             <Button
               onClick={handleRestart}
