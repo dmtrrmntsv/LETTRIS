@@ -47,7 +47,7 @@ class Trie {
 // Load words from the provided dictionary file
 const loadDictionary = async (): Promise<string[]> => {
   try {
-    const response = await fetch('/russian_lemmas_3_14.txt');
+    const response = await fetch('/LETTRIS/russian_lemmas_3_14.txt');
     const text = await response.text();
     return text.split('\n').map(word => word.trim()).filter(word => word.length > 0);
   } catch (error) {
