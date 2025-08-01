@@ -30,6 +30,7 @@ const GameGrid: React.FC = () => {
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const [touchStartPos, setTouchStartPos] = useState({ x: 0, y: 0 });
+  const [isSelectingWord, setIsSelectingWord] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
   // Check if two cells are adjacent (for snake-like word building)
@@ -45,6 +46,101 @@ const GameGrid: React.FC = () => {
     const lastSelected = selectedLetters[selectedLetters.length - 1];
     return areAdjacent(lastSelected, { row, col });
   };
+
+  // Find the best anchor position for a figure that would include the target position
+  const findBestAnchorPosition = useCallback((targetRow: number, targetCol: number, figure: Figure) => {
+    // Try all possible anchor positions that would result in the figure covering the target position
+    for (let i = 0; i < figure.shape.length; i++) {
+      const [shapeRow, shapeCol] = figure.shape[i];
+      const anchorRow = targetRow - shapeRow;
+      const anchorCol = targetCol - shapeCol;
+      
+      // Check if this anchor position would be valid
+      let canPlace = true;
+      const hoveredCells: Array<{ row: number; col: number }> = [];
+      
+      for (let j = 0; j < figure.shape.length; j++) {
+        const [checkShapeRow, checkShapeCol] = figure.shape[j];
+        const gridRow = anchorRow + checkShapeRow;
+        const gridCol = anchorCol + checkShapeCol;
+        
+        if (gridRow < 0 || gridRow >= 5 || gridCol < 0 || gridCol >= 5) {
+          canPlace = false;
+          break;
+        }
+        
+        if (grid[gridRow][gridCol].letter !== null) {
+          canPlace = false;
+          break;
+        }
+        
+        hoveredCells.push({ row: gridRow, col: gridCol });
+      }
+      
+      if (canPlace) {
+        return { anchorRow, anchorCol, hoveredCells };
+      }
+    }
+    
+    return null;
+  }, [grid]);
+
+  // Handle letter selection for word building
+  const handleLetterClick = useCallback((row: number, col: number) => {
+    const cell = grid[row][col];
+    if (!cell.letter) return;
+    
+    // Check if already selected
+    const isAlreadySelected = selectedLetters.some(pos => pos.row === row && pos.col === col);
+    if (isAlreadySelected) return;
+    
+    // Check snake rule
+    if (!canSelectCell(row, col)) return;
+    
+    // Haptic feedback
+    if ('vibrate' in navigator) {
+      navigator.vibrate(10);
+    }
+    
+    addSelectedLetter({ row, col, letter: cell.letter });
+  }, [grid, addSelectedLetter, selectedLetters, canSelectCell]);
+
+  // Word selection drag handlers
+  const handleWordSelectionStart = useCallback((row: number, col: number, event: React.MouseEvent | React.TouchEvent) => {
+    const cell = grid[row][col];
+    if (!cell?.letter || isDragging) return;
+    
+    setIsSelectingWord(true);
+    handleLetterClick(row, col);
+    
+    // Prevent text selection and other behaviors during drag
+    event.preventDefault();
+  }, [grid, isDragging, handleLetterClick]);
+
+  const handleWordSelectionMove = useCallback((row: number, col: number) => {
+    if (!isSelectingWord) return;
+    
+    const cell = grid[row][col];
+    if (!cell?.letter) return;
+    
+    // Check if already selected
+    const isAlreadySelected = selectedLetters.some(pos => pos.row === row && pos.col === col);
+    if (isAlreadySelected) return;
+    
+    // Check snake rule
+    if (!canSelectCell(row, col)) return;
+    
+    // Haptic feedback
+    if ('vibrate' in navigator) {
+      navigator.vibrate(5);
+    }
+    
+    addSelectedLetter({ row, col, letter: cell.letter });
+  }, [isSelectingWord, grid, selectedLetters, canSelectCell, addSelectedLetter]);
+
+  const handleWordSelectionEnd = useCallback(() => {
+    setIsSelectingWord(false);
+  }, []);
 
   // Handle drag start for figures
   const handleDragStart = useCallback((figure: Figure, event: React.DragEvent | React.TouchEvent) => {
@@ -88,36 +184,17 @@ const GameGrid: React.FC = () => {
     const row = Math.floor(y / cellSize);
     
     if (row >= 0 && row < 5 && col >= 0 && col < 5) {
-      const hoveredCells: Array<{ row: number; col: number }> = [];
-      let canPlace = true;
+      const result = findBestAnchorPosition(row, col, draggedFigure);
       
-      for (let i = 0; i < draggedFigure.shape.length; i++) {
-        const [shapeRow, shapeCol] = draggedFigure.shape[i];
-        const gridRow = row + shapeRow;
-        const gridCol = col + shapeCol;
-        
-        if (gridRow < 0 || gridRow >= 5 || gridCol < 0 || gridCol >= 5) {
-          canPlace = false;
-          break;
-        }
-        
-        if (grid[gridRow][gridCol].letter !== null) {
-          canPlace = false;
-          break;
-        }
-        
-        hoveredCells.push({ row: gridRow, col: gridCol });
-      }
-      
-      if (canPlace) {
-        setHoveredCells(hoveredCells);
+      if (result) {
+        setHoveredCells(result.hoveredCells);
       } else {
         clearHoveredCells();
       }
     } else {
       clearHoveredCells();
     }
-  }, [isDragging, draggedFigure, dragOffset, grid, setHoveredCells, clearHoveredCells]);
+  }, [isDragging, draggedFigure, dragOffset, findBestAnchorPosition, setHoveredCells, clearHoveredCells]);
 
   // Handle touch end for mobile drop
   const handleTouchEnd = useCallback((event: TouchEvent) => {
@@ -134,13 +211,16 @@ const GameGrid: React.FC = () => {
     const row = Math.floor(y / cellSize);
     
     if (row >= 0 && row < 5 && col >= 0 && col < 5) {
-      placeFigure(draggedFigure, { row, col }, 0);
+      const result = findBestAnchorPosition(row, col, draggedFigure);
+      if (result) {
+        placeFigure(draggedFigure, { row: result.anchorRow, col: result.anchorCol }, 0);
+      }
     }
     
     setDraggedFigure(null);
     setIsDragging(false);
     clearHoveredCells();
-  }, [isDragging, draggedFigure, dragOffset, placeFigure, clearHoveredCells]);
+  }, [isDragging, draggedFigure, dragOffset, findBestAnchorPosition, placeFigure, clearHoveredCells]);
 
   // Set up touch event listeners
   useEffect(() => {
@@ -155,6 +235,22 @@ const GameGrid: React.FC = () => {
     }
   }, [isDragging, handleTouchMove, handleTouchEnd]);
 
+  // Set up word selection event listeners
+  useEffect(() => {
+    if (isSelectingWord) {
+      const handleMouseUp = () => handleWordSelectionEnd();
+      const handleTouchEndWord = () => handleWordSelectionEnd();
+      
+      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('touchend', handleTouchEndWord);
+      
+      return () => {
+        document.removeEventListener('mouseup', handleMouseUp);
+        document.removeEventListener('touchend', handleTouchEndWord);
+      };
+    }
+  }, [isSelectingWord, handleWordSelectionEnd]);
+
   // Handle drag over
   const handleDragOver = useCallback((event: React.DragEvent) => {
     event.preventDefault();
@@ -166,34 +262,15 @@ const GameGrid: React.FC = () => {
     event.preventDefault();
     
     if (draggedFigure) {
-      const hoveredCells: Array<{ row: number; col: number }> = [];
-      let canPlace = true;
+      const result = findBestAnchorPosition(row, col, draggedFigure);
       
-      for (let i = 0; i < draggedFigure.shape.length; i++) {
-        const [shapeRow, shapeCol] = draggedFigure.shape[i];
-        const gridRow = row + shapeRow;
-        const gridCol = col + shapeCol;
-        
-        if (gridRow < 0 || gridRow >= 5 || gridCol < 0 || gridCol >= 5) {
-          canPlace = false;
-          break;
-        }
-        
-        if (grid[gridRow][gridCol].letter !== null) {
-          canPlace = false;
-          break;
-        }
-        
-        hoveredCells.push({ row: gridRow, col: gridCol });
-      }
-      
-      if (canPlace) {
-        setHoveredCells(hoveredCells);
+      if (result) {
+        setHoveredCells(result.hoveredCells);
       } else {
         clearHoveredCells();
       }
     }
-  }, [draggedFigure, grid, setHoveredCells, clearHoveredCells]);
+  }, [draggedFigure, findBestAnchorPosition, setHoveredCells, clearHoveredCells]);
 
   // Handle drag leave
   const handleDragLeave = useCallback((event: React.DragEvent) => {
@@ -212,31 +289,14 @@ const GameGrid: React.FC = () => {
     clearHoveredCells();
     
     if (draggedFigure) {
-      placeFigure(draggedFigure, { row, col }, 0);
+      const result = findBestAnchorPosition(row, col, draggedFigure);
+      if (result) {
+        placeFigure(draggedFigure, { row: result.anchorRow, col: result.anchorCol }, 0);
+      }
       setDraggedFigure(null);
       setIsDragging(false);
     }
-  }, [draggedFigure, placeFigure, clearHoveredCells]);
-
-  // Handle letter selection for word building
-  const handleLetterClick = useCallback((row: number, col: number) => {
-    const cell = grid[row][col];
-    if (!cell.letter) return;
-    
-    // Check if already selected
-    const isAlreadySelected = selectedLetters.some(pos => pos.row === row && pos.col === col);
-    if (isAlreadySelected) return;
-    
-    // Check snake rule
-    if (!canSelectCell(row, col)) return;
-    
-    // Haptic feedback
-    if ('vibrate' in navigator) {
-      navigator.vibrate(10);
-    }
-    
-    addSelectedLetter({ row, col, letter: cell.letter });
-  }, [grid, addSelectedLetter, selectedLetters, canSelectCell]);
+  }, [draggedFigure, findBestAnchorPosition, placeFigure, clearHoveredCells]);
 
   const getCellClass = (cell: Cell, row: number, col: number) => {
     const isSelected = selectedLetters.some(pos => pos.row === row && pos.col === col);
@@ -341,6 +401,23 @@ const GameGrid: React.FC = () => {
                 className={getCellClass(cell, rowIndex, colIndex)}
                 style={getCellStyle(cell, isSelected, rowIndex, colIndex)}
                 onClick={() => handleLetterClick(rowIndex, colIndex)}
+                onMouseDown={(e) => handleWordSelectionStart(rowIndex, colIndex, e)}
+                onMouseEnter={() => handleWordSelectionMove(rowIndex, colIndex)}
+                onTouchStart={(e) => handleWordSelectionStart(rowIndex, colIndex, e)}
+                onTouchMove={(e) => {
+                  if (e.touches[0] && gridRef.current) {
+                    const touch = e.touches[0];
+                    const gridRect = gridRef.current.getBoundingClientRect();
+                    const cellSize = gridRect.width / 5;
+                    const x = touch.clientX - gridRect.left;
+                    const y = touch.clientY - gridRect.top;
+                    const col = Math.floor(x / cellSize);
+                    const row = Math.floor(y / cellSize);
+                    if (row >= 0 && row < 5 && col >= 0 && col < 5) {
+                      handleWordSelectionMove(row, col);
+                    }
+                  }
+                }}
                 onDragOver={handleDragOver}
                 onDragEnter={(e) => handleDragEnter(rowIndex, colIndex, e)}
                 onDrop={(e) => handleDrop(rowIndex, colIndex, e)}
