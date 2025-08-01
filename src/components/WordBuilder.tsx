@@ -1,6 +1,6 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, RotateCcw } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { getDictionary } from '../utils/dictionary';
 
@@ -8,6 +8,7 @@ const WordBuilder: React.FC = () => {
   const { selectedLetters, currentWord, submitWord, clearSelection } = useGameStore();
   const [validationState, setValidationState] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [recentWords, setRecentWords] = useState<string[]>([]);
+  const [isBuilding, setIsBuilding] = useState(false);
 
   const handleSubmitWord = useCallback(async () => {
     if (currentWord.length < 3) return;
@@ -33,6 +34,7 @@ const WordBuilder: React.FC = () => {
       setTimeout(() => {
         submitWord(currentWord);
         setValidationState('idle');
+        setIsBuilding(false);
       }, 800);
     } else {
       // Error haptic feedback
@@ -50,6 +52,43 @@ const WordBuilder: React.FC = () => {
     }
   }, [currentWord, submitWord]);
 
+  // Handle touch-based word submission
+  useEffect(() => {
+    const handleTouchEnd = () => {
+      if (isBuilding && currentWord.length >= 3) {
+        handleSubmitWord();
+      }
+      setIsBuilding(false);
+    };
+
+    const handleTouchStart = () => {
+      if (selectedLetters.length > 0) {
+        setIsBuilding(true);
+      }
+    };
+
+    // Handle clicks outside the word area to discard
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.word-builder-area') && !target.closest('.game-grid') && currentWord.length > 0) {
+        clearSelection();
+        setIsBuilding(false);
+      }
+    };
+
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('touchend', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('click', handleClickOutside);
+      document.removeEventListener('touchend', handleClickOutside);
+    };
+  }, [isBuilding, currentWord, selectedLetters, handleSubmitWord, clearSelection]);
+
   const getWordDisplayColor = () => {
     switch (validationState) {
       case 'valid': return 'var(--tg-theme-accent-text-color)';
@@ -59,7 +98,7 @@ const WordBuilder: React.FC = () => {
   };
 
   return (
-    <div className="w-full space-y-3">
+    <div className="w-full space-y-3 word-builder-area">
       
       {/* Current Word Display */}
       <AnimatePresence mode="wait">
@@ -88,32 +127,20 @@ const WordBuilder: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Action Buttons */}
-      {currentWord && (
-        <div className="flex justify-center gap-2">
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={clearSelection}
-            className="flex items-center gap-1 px-3 py-2 rounded-lg ton-glass touch-friendly"
+      {/* Touch Instructions */}
+      {currentWord && currentWord.length >= 3 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center"
+        >
+          <div 
+            className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium ton-glass"
             style={{ color: 'var(--tg-theme-hint-color)' }}
           >
-            <RotateCcw className="w-4 h-4" />
-            <span className="text-sm">Сброс</span>
-          </motion.button>
-          
-          <motion.button
-            whileTap={{ scale: 0.95 }}
-            onClick={handleSubmitWord}
-            disabled={currentWord.length < 3 || validationState !== 'idle'}
-            className="px-4 py-2 rounded-lg font-medium text-sm touch-friendly disabled:opacity-50"
-            style={{
-              backgroundColor: 'var(--tg-theme-button-color)',
-              color: 'var(--tg-theme-button-text-color)'
-            }}
-          >
-            Слово!
-          </motion.button>
-        </div>
+            {isBuilding ? 'Отпустите для отправки' : 'Нажмите в любом месте для сброса'}
+          </div>
+        </motion.div>
       )}
 
       {/* Recent Words */}

@@ -1,6 +1,18 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
+
+interface Figure {
+  shape: number[][];
+  letters: string[];
+  id: string;
+}
+
+interface Cell {
+  letter: string | null;
+  isFixed: boolean;
+  isHovered: boolean;
+}
 
 const GameGrid: React.FC = () => {
   const { 
@@ -14,13 +26,134 @@ const GameGrid: React.FC = () => {
     clearHoveredCells
   } = useGameStore();
   
-  const [draggedFigure, setDraggedFigure] = useState<any>(null);
+  const [draggedFigure, setDraggedFigure] = useState<Figure | null>(null);
+  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [touchStartPos, setTouchStartPos] = useState({ x: 0, y: 0 });
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Check if two cells are adjacent (for snake-like word building)
+  const areAdjacent = (cell1: { row: number; col: number }, cell2: { row: number; col: number }) => {
+    const rowDiff = Math.abs(cell1.row - cell2.row);
+    const colDiff = Math.abs(cell1.col - cell2.col);
+    return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+  };
+
+  // Check if a cell can be selected (snake rule)
+  const canSelectCell = (row: number, col: number) => {
+    if (selectedLetters.length === 0) return true;
+    const lastSelected = selectedLetters[selectedLetters.length - 1];
+    return areAdjacent(lastSelected, { row, col });
+  };
 
   // Handle drag start for figures
-  const handleDragStart = useCallback((figure: any, event: React.DragEvent) => {
+  const handleDragStart = useCallback((figure: Figure, event: React.DragEvent | React.TouchEvent) => {
     setDraggedFigure(figure);
-    event.dataTransfer.effectAllowed = 'move';
+    setIsDragging(true);
+    
+    if ('touches' in event) {
+      // Touch event
+      const touch = event.touches[0];
+      const rect = (event.target as HTMLElement).getBoundingClientRect();
+      setDragOffset({
+        x: touch.clientX - rect.left - rect.width / 2,
+        y: touch.clientY - rect.top - rect.height / 2
+      });
+      setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+    } else {
+      // Mouse event
+      event.dataTransfer.effectAllowed = 'move';
+      const rect = (event.target as HTMLElement).getBoundingClientRect();
+      setDragOffset({
+        x: event.clientX - rect.left - rect.width / 2,
+        y: event.clientY - rect.top - rect.height / 2
+      });
+    }
   }, []);
+
+  // Handle touch move for mobile drag
+  const handleTouchMove = useCallback((event: TouchEvent) => {
+    if (!isDragging || !draggedFigure || !gridRef.current) return;
+    
+    event.preventDefault();
+    const touch = event.touches[0];
+    const gridRect = gridRef.current.getBoundingClientRect();
+    
+    // Calculate grid position accounting for drag offset
+    const x = touch.clientX - dragOffset.x - gridRect.left;
+    const y = touch.clientY - dragOffset.y - gridRect.top;
+    
+    const cellSize = gridRect.width / 5; // 5x5 grid
+    const col = Math.floor(x / cellSize);
+    const row = Math.floor(y / cellSize);
+    
+    if (row >= 0 && row < 5 && col >= 0 && col < 5) {
+      const hoveredCells: Array<{ row: number; col: number }> = [];
+      let canPlace = true;
+      
+      for (let i = 0; i < draggedFigure.shape.length; i++) {
+        const [shapeRow, shapeCol] = draggedFigure.shape[i];
+        const gridRow = row + shapeRow;
+        const gridCol = col + shapeCol;
+        
+        if (gridRow < 0 || gridRow >= 5 || gridCol < 0 || gridCol >= 5) {
+          canPlace = false;
+          break;
+        }
+        
+        if (grid[gridRow][gridCol].letter !== null) {
+          canPlace = false;
+          break;
+        }
+        
+        hoveredCells.push({ row: gridRow, col: gridCol });
+      }
+      
+      if (canPlace) {
+        setHoveredCells(hoveredCells);
+      } else {
+        clearHoveredCells();
+      }
+    } else {
+      clearHoveredCells();
+    }
+  }, [isDragging, draggedFigure, dragOffset, grid, setHoveredCells, clearHoveredCells]);
+
+  // Handle touch end for mobile drop
+  const handleTouchEnd = useCallback((event: TouchEvent) => {
+    if (!isDragging || !draggedFigure || !gridRef.current) return;
+    
+    const touch = event.changedTouches[0];
+    const gridRect = gridRef.current.getBoundingClientRect();
+    
+    const x = touch.clientX - dragOffset.x - gridRect.left;
+    const y = touch.clientY - dragOffset.y - gridRect.top;
+    
+    const cellSize = gridRect.width / 5;
+    const col = Math.floor(x / cellSize);
+    const row = Math.floor(y / cellSize);
+    
+    if (row >= 0 && row < 5 && col >= 0 && col < 5) {
+      placeFigure(draggedFigure, { row, col }, 0);
+    }
+    
+    setDraggedFigure(null);
+    setIsDragging(false);
+    clearHoveredCells();
+  }, [isDragging, draggedFigure, dragOffset, placeFigure, clearHoveredCells]);
+
+  // Set up touch event listeners
+  useEffect(() => {
+    if (isDragging) {
+      document.addEventListener('touchmove', handleTouchMove, { passive: false });
+      document.addEventListener('touchend', handleTouchEnd);
+      
+      return () => {
+        document.removeEventListener('touchmove', handleTouchMove);
+        document.removeEventListener('touchend', handleTouchEnd);
+      };
+    }
+  }, [isDragging, handleTouchMove, handleTouchEnd]);
 
   // Handle drag over
   const handleDragOver = useCallback((event: React.DragEvent) => {
@@ -41,7 +174,7 @@ const GameGrid: React.FC = () => {
         const gridRow = row + shapeRow;
         const gridCol = col + shapeCol;
         
-        if (gridRow < 0 || gridRow >= 6 || gridCol < 0 || gridCol >= 6) {
+        if (gridRow < 0 || gridRow >= 5 || gridCol < 0 || gridCol >= 5) {
           canPlace = false;
           break;
         }
@@ -79,8 +212,9 @@ const GameGrid: React.FC = () => {
     clearHoveredCells();
     
     if (draggedFigure) {
-      const success = placeFigure(draggedFigure, { row, col }, 0);
+      placeFigure(draggedFigure, { row, col }, 0);
       setDraggedFigure(null);
+      setIsDragging(false);
     }
   }, [draggedFigure, placeFigure, clearHoveredCells]);
 
@@ -89,30 +223,43 @@ const GameGrid: React.FC = () => {
     const cell = grid[row][col];
     if (!cell.letter) return;
     
+    // Check if already selected
+    const isAlreadySelected = selectedLetters.some(pos => pos.row === row && pos.col === col);
+    if (isAlreadySelected) return;
+    
+    // Check snake rule
+    if (!canSelectCell(row, col)) return;
+    
     // Haptic feedback
     if ('vibrate' in navigator) {
       navigator.vibrate(10);
     }
     
     addSelectedLetter({ row, col, letter: cell.letter });
-  }, [grid, addSelectedLetter]);
+  }, [grid, addSelectedLetter, selectedLetters, canSelectCell]);
 
-  const getCellClass = (cell: any, row: number, col: number) => {
+  const getCellClass = (cell: Cell, row: number, col: number) => {
     const isSelected = selectedLetters.some(pos => pos.row === row && pos.col === col);
+    const canSelect = cell?.letter && canSelectCell(row, col);
     
-    let classes = [
-      "w-12 h-12 border border-white/20 flex items-center justify-center",
-      "text-lg font-bold rounded-xl transition-all duration-200 touch-friendly",
-      "select-none"
+    const classes = [
+      "w-16 h-16 border-2 border-white/20 flex items-center justify-center",
+      "text-xl font-bold rounded-2xl transition-all duration-200 touch-friendly",
+      "select-none relative overflow-hidden"
     ];
     
     if (cell?.letter) {
       if (isSelected) {
-        classes.push("ring-2 ring-[var(--ton-gradient-end)] ring-offset-2 ring-offset-transparent");
+        classes.push("ring-3 ring-cyan-400 ring-offset-2 ring-offset-transparent scale-105");
+      } else if (canSelect) {
+        classes.push("cursor-pointer hover:scale-110 active:scale-95 hover:ring-2 hover:ring-cyan-300/50");
+      } else if (selectedLetters.length > 0) {
+        classes.push("opacity-40");
+      } else {
+        classes.push("cursor-pointer hover:scale-110 active:scale-95");
       }
-      classes.push("cursor-pointer hover:scale-105 active:scale-95");
     } else if (cell?.isHovered) {
-      classes.push("scale-105 ton-shadow");
+      classes.push("scale-110 shadow-lg shadow-cyan-500/30");
     } else {
       classes.push("hover:scale-105");
     }
@@ -120,44 +267,79 @@ const GameGrid: React.FC = () => {
     return classes.join(" ");
   };
 
-  const getCellStyle = (cell: any, isSelected: boolean) => {
+  const getCellStyle = (cell: Cell, isSelected: boolean, row: number, col: number) => {
+    const canSelect = cell?.letter && canSelectCell(row, col);
+    
     if (cell?.letter) {
-      return {
-        backgroundColor: isSelected 
-          ? 'var(--ton-gradient-end)' 
-          : 'var(--tg-theme-button-color)',
-        color: 'var(--tg-theme-button-text-color)'
-      };
+      if (isSelected) {
+        return {
+          background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+          color: '#ffffff',
+          boxShadow: '0 8px 32px rgba(6, 182, 212, 0.4)'
+        };
+      } else if (canSelect) {
+        return {
+          background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+          color: '#f1f5f9',
+          border: '2px solid #475569'
+        };
+      } else if (selectedLetters.length > 0) {
+        return {
+          background: 'linear-gradient(135deg, #374151 0%, #4b5563 100%)',
+          color: '#9ca3af',
+          border: '2px solid #6b7280'
+        };
+      } else {
+        return {
+          background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)',
+          color: '#f1f5f9',
+          border: '2px solid #475569'
+        };
+      }
     } else if (cell?.isHovered) {
       return {
-        backgroundColor: 'var(--tg-theme-accent-text-color)',
-        color: 'var(--tg-theme-button-text-color)'
+        background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+        color: '#ffffff',
+        border: '2px solid #06b6d4',
+        boxShadow: '0 8px 32px rgba(8, 145, 178, 0.4)'
       };
     } else {
       return {
-        backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-        color: 'var(--tg-theme-hint-color)'
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+        color: '#64748b',
+        border: '2px solid #334155'
       };
     }
   };
 
+  const handleFigureTouchStart = (figure: Figure) => (event: React.TouchEvent) => {
+    handleDragStart(figure, event);
+  };
+
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-6">
       
       {/* Game Grid */}
       <div 
-        className="mobile-grid grid-cols-6 p-4 ton-glass rounded-2xl ton-shadow"
+        ref={gridRef}
+        className="game-grid grid grid-cols-5 gap-2 p-6 rounded-3xl relative"
+        style={{
+          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(148, 163, 184, 0.2)',
+          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)'
+        }}
         onDragLeave={handleDragLeave}
       >
-        {grid.map((row, rowIndex) =>
-          row.map((cell, colIndex) => {
+        {grid.slice(0, 5).map((row, rowIndex) =>
+          row.slice(0, 5).map((cell, colIndex) => {
             const isSelected = selectedLetters.some(pos => pos.row === rowIndex && pos.col === colIndex);
             
             return (
               <motion.div
                 key={`${rowIndex}-${colIndex}`}
                 className={getCellClass(cell, rowIndex, colIndex)}
-                style={getCellStyle(cell, isSelected)}
+                style={getCellStyle(cell, isSelected, rowIndex, colIndex)}
                 onClick={() => handleLetterClick(rowIndex, colIndex)}
                 onDragOver={handleDragOver}
                 onDragEnter={(e) => handleDragEnter(rowIndex, colIndex, e)}
@@ -166,27 +348,50 @@ const GameGrid: React.FC = () => {
                 layout
               >
                 {cell?.letter?.toUpperCase() || ''}
+                {isSelected && (
+                  <motion.div
+                    className="absolute inset-0 rounded-2xl"
+                    style={{
+                      background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.2) 50%, transparent 70%)'
+                    }}
+                    animate={{
+                      x: ['-100%', '100%']
+                    }}
+                    transition={{
+                      duration: 1.5,
+                      repeat: Infinity,
+                      ease: 'linear'
+                    }}
+                  />
+                )}
               </motion.div>
             );
           })
         )}
       </div>
 
-      {/* Consolidated Figure Queue */}
-      <div className="w-full">
+      {/* Figure Queue */}
+      <div className="w-full max-w-sm">
         <h3 
-          className="text-sm font-medium mb-2 text-center"
-          style={{ color: 'var(--tg-theme-section-header-text-color)' }}
+          className="text-sm font-semibold mb-3 text-center tracking-wide"
+          style={{ color: '#94a3b8' }}
         >
-          Фигуры
+          ФИГУРЫ
         </h3>
-        <div className="flex justify-center gap-3">
+        <div className="flex justify-center gap-4">
           {queue.map((figure, index) => (
             <motion.div
               key={figure.id}
-              className="p-3 ton-glass rounded-xl cursor-move touch-friendly"
+              className="p-4 rounded-2xl cursor-move touch-friendly relative"
+              style={{
+                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
+              }}
               draggable
               onDragStart={(e) => handleDragStart(figure, e)}
+              onTouchStart={handleFigureTouchStart(figure)}
               whileHover={{ scale: 1.05 }}
               whileDrag={{ scale: 1.1, zIndex: 1000 }}
               layout
@@ -201,12 +406,12 @@ const GameGrid: React.FC = () => {
                 {figure.shape.map(([row, col], i) => (
                   <div
                     key={i}
-                    className="w-6 h-6 border border-white/30 flex items-center justify-center text-xs font-bold rounded-lg shadow-sm"
+                    className="w-8 h-8 border border-white/30 flex items-center justify-center text-sm font-bold rounded-xl shadow-sm"
                     style={{
                       gridColumn: col + 1,
                       gridRow: row + 1,
-                      backgroundColor: 'var(--ton-gradient-start)',
-                      color: 'var(--tg-theme-button-text-color)'
+                      background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+                      color: '#ffffff'
                     }}
                   >
                     {figure.letters[i].toUpperCase()}

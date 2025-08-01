@@ -127,8 +127,8 @@ function generateQueue(): Figure[] {
 }
 
 function createEmptyGrid(): Cell[][] {
-  return Array(6).fill(null).map(() => 
-    Array(6).fill(null).map(() => ({ letter: null, isFixed: false, isHovered: false }))
+  return Array(5).fill(null).map(() => 
+    Array(5).fill(null).map(() => ({ letter: null, isFixed: false, isHovered: false }))
   );
 }
 
@@ -210,7 +210,7 @@ export const useGameStore = create<GameState>()(
       const newGrid = state.grid.map(row => row.map(cell => ({ ...cell, isHovered: false })));
       
       cells.forEach(({ row, col }) => {
-        if (row >= 0 && row < 6 && col >= 0 && col < 6) {
+        if (row >= 0 && row < 5 && col >= 0 && col < 5) {
           newGrid[row][col].isHovered = true;
         }
       });
@@ -234,7 +234,7 @@ export const useGameStore = create<GameState>()(
         const gridRow = position.row + shapeRow;
         const gridCol = position.col + shapeCol;
         
-        if (gridRow < 0 || gridRow >= 6 || gridCol < 0 || gridCol >= 6) {
+        if (gridRow < 0 || gridRow >= 5 || gridCol < 0 || gridCol >= 5) {
           return false; // Out of bounds
         }
         
@@ -336,7 +336,7 @@ export const useGameStore = create<GameState>()(
       if (typeof window !== 'undefined' && window.Telegram?.WebApp?.CloudStorage) {
         window.Telegram.WebApp.CloudStorage.getItems(
           ['lives', 'coins', 'lastCheckIn', 'highScores'],
-          (error: any, values: any) => {
+          (error: string | null, values: Record<string, string> | null) => {
             if (!error && values) {
               set({
                 lives: parseInt(values.lives) || 5,

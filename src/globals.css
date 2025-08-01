@@ -6,26 +6,32 @@
 @tailwind utilities;
 
 :root {
+  /* Modern Crypto App Color Scheme */
+  --primary-gradient: linear-gradient(135deg, #0891b2 0%, #06b6d4 50%, #0284c7 100%);
+  --secondary-gradient: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+  --accent-gradient: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  --dark-gradient: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  
   /* TON Color Scheme */
   --ton-main: #0098EA;
   --ton-bg-gray: #F7F9FB;
-  --ton-bg-black: #1E2337;
-  --ton-gradient-start: #2D83EC;
-  --ton-gradient-end: #1AC9FF;
+  --ton-bg-black: #0f172a;
+  --ton-gradient-start: #0891b2;
+  --ton-gradient-end: #06b6d4;
   
   /* Telegram TWA Theme Variables (Dark as default) */
   --tg-theme-bg-color: var(--ton-bg-black);
-  --tg-theme-secondary-bg-color: #252A42;
-  --tg-theme-section-bg-color: #2A3148;
-  --tg-theme-text-color: #FFFFFF;
-  --tg-theme-hint-color: #8B95A8;
+  --tg-theme-secondary-bg-color: #1e293b;
+  --tg-theme-section-bg-color: #334155;
+  --tg-theme-text-color: #f1f5f9;
+  --tg-theme-hint-color: #94a3b8;
   --tg-theme-link-color: var(--ton-main);
   --tg-theme-button-color: var(--ton-main);
-  --tg-theme-button-text-color: #FFFFFF;
+  --tg-theme-button-text-color: #ffffff;
   --tg-theme-accent-text-color: var(--ton-gradient-end);
-  --tg-theme-subtitle-text-color: #6B7280;
-  --tg-theme-destructive-text-color: #EF4444;
-  --tg-theme-section-header-text-color: #9CA3AF;
+  --tg-theme-subtitle-text-color: #64748b;
+  --tg-theme-destructive-text-color: #ef4444;
+  --tg-theme-section-header-text-color: #94a3b8;
   
   /* Custom Properties */
   --viewport-height: 100vh;
@@ -35,10 +41,16 @@
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
   
   /* Mobile Optimizations */
-  --touch-target-size: 44px;
-  --grid-cell-size: 48px;
-  --border-radius-primary: 16px;
-  --border-radius-secondary: 12px;
+  --touch-target-size: 48px;
+  --grid-cell-size: 64px;
+  --border-radius-primary: 24px;
+  --border-radius-secondary: 16px;
+  --border-radius-small: 12px;
+  
+  /* Shadows */
+  --shadow-glow: 0 0 20px rgba(6, 182, 212, 0.3);
+  --shadow-deep: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-card: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
 }
 
 @layer base {
@@ -56,12 +68,17 @@
   
   body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    background: linear-gradient(135deg, var(--ton-gradient-start) 0%, var(--ton-gradient-end) 100%);
+    background: var(--dark-gradient);
     color: var(--tg-theme-text-color);
     height: var(--viewport-height);
     overflow: hidden;
     margin: 0;
     padding: 0;
+    
+    /* Modern background pattern */
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(6, 182, 212, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(8, 145, 178, 0.1) 0%, transparent 50%);
     
     /* Mobile optimizations */
     -webkit-font-smoothing: antialiased;
@@ -84,7 +101,7 @@
     display: grid;
     gap: 8px;
     width: 100%;
-    max-width: 320px;
+    max-width: 400px;
   }
   
   .touch-friendly {
@@ -92,14 +109,58 @@
     min-width: var(--touch-target-size);
   }
   
+  /* Modern Glass Morphism */
   .ton-glass {
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(30, 41, 59, 0.8);
     backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: var(--shadow-card);
   }
   
+  .ton-glass-light {
+    background: rgba(51, 65, 85, 0.6);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+  }
+  
+  /* Enhanced Shadows */
   .ton-shadow {
-    box-shadow: 0 4px 24px rgba(0, 152, 234, 0.2);
+    box-shadow: var(--shadow-glow);
+  }
+  
+  .ton-shadow-deep {
+    box-shadow: var(--shadow-deep);
+  }
+  
+  /* Modern Gradients */
+  .gradient-primary {
+    background: var(--primary-gradient);
+  }
+  
+  .gradient-secondary {
+    background: var(--secondary-gradient);
+  }
+  
+  .gradient-accent {
+    background: var(--accent-gradient);
+  }
+  
+  .gradient-dark {
+    background: var(--dark-gradient);
+  }
+  
+  /* Crypto-style borders */
+  .crypto-border {
+    border: 2px solid transparent;
+    background: linear-gradient(var(--dark-gradient), var(--dark-gradient)) padding-box,
+                var(--accent-gradient) border-box;
+  }
+  
+  .crypto-border-glow {
+    border: 2px solid transparent;
+    background: linear-gradient(var(--dark-gradient), var(--dark-gradient)) padding-box,
+                var(--accent-gradient) border-box;
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
   }
   
   /* Font weight utilities for Inter */
@@ -117,5 +178,158 @@
   
   .font-bold {
     font-weight: 700;
+  }
+  
+  /* Modern spacing */
+  .space-modern > * + * {
+    margin-top: 1.5rem;
+  }
+  
+  /* Hover effects */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-glow);
+  }
+  
+  /* Pulse animation for active elements */
+  .pulse-glow {
+    animation: pulse-glow 2s infinite;
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 30px rgba(6, 182, 212, 0.6);
+    }
+  }
+  
+  /* Modern text styles */
+  .text-glow {
+    text-shadow: 0 0 10px rgba(6, 182, 212, 0.5);
+  }
+  
+  .text-crypto {
+    background: var(--accent-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-weight: 600;
+  }
+  
+  /* Enhanced mobile touch targets */
+  .touch-target {
+    min-height: 48px;
+    min-width: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--border-radius-secondary);
+    transition: all 0.2s ease;
+  }
+  
+  .touch-target:active {
+    transform: scale(0.95);
+  }
+  
+  /* Grid enhancements */
+  .game-grid {
+    position: relative;
+  }
+  
+  .game-grid::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: var(--accent-gradient);
+    border-radius: inherit;
+    z-index: -1;
+    opacity: 0.5;
+    filter: blur(8px);
+  }
+  
+  /* Modern scrollbars */
+  ::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: var(--tg-theme-secondary-bg-color);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: var(--accent-gradient);
+    border-radius: 4px;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--primary-gradient);
+  }
+}
+
+/* Responsive design for Telegram Mini App */
+@media (max-width: 480px) {
+  :root {
+    --grid-cell-size: 56px;
+    --border-radius-primary: 20px;
+    --border-radius-secondary: 14px;
+  }
+  
+  .mobile-grid {
+    max-width: 350px;
+    gap: 6px;
+  }
+  
+  .ton-glass {
+    backdrop-filter: blur(16px);
+  }
+}
+
+@media (max-height: 600px) {
+  :root {
+    --grid-cell-size: 48px;
+  }
+  
+  .space-modern > * + * {
+    margin-top: 1rem;
+  }
+}
+
+/* Dark mode enhancements */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --tg-theme-bg-color: #0f172a;
+    --tg-theme-secondary-bg-color: #1e293b;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ton-glass {
+    border-width: 2px;
+    border-color: var(--tg-theme-accent-text-color);
+  }
+  
+  .crypto-border {
+    border-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .pulse-glow {
+    animation: none;
   }
 }
