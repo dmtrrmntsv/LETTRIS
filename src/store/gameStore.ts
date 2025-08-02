@@ -35,8 +35,6 @@ interface GameState {
   selectedLetters: SelectedLetter[];
   currentWord: string;
   fallingAnimations: Array<{ from: {row: number, col: number}, to: {row: number, col: number}, letter: string }>;
-  isJokerActive: boolean;
-  jokerPositions: Array<{ row: number; col: number }>;
   draggedFigure: Figure | null;
   isDragging: boolean;
   
@@ -44,9 +42,6 @@ interface GameState {
   init: () => void;
   placeFigure: (figure: Figure, position: { row: number; col: number }, rotation: number) => boolean;
   rotateFigure: (figureId: string, rotation: number) => void;
-  activateJoker: (positions: Array<{ row: number; col: number }>) => void;
-  replaceJoker: (letter: string) => void;
-  cancelJoker: () => void;
   checkIn: () => void;
   restoreLife: () => void;
   buyLife: () => boolean;
@@ -124,13 +119,9 @@ const SHAPES = [
 
 function generateFigure(): Figure {
   const shape = SHAPES[Math.floor(Math.random() * SHAPES.length)];
-  const letters = shape.map(() => {
-    // 5% chance for joker
-    if (Math.random() < 0.05) {
-      return '*';
-    }
-    return LETTER_WEIGHTS[Math.floor(Math.random() * LETTER_WEIGHTS.length)];
-  });
+  const letters = shape.map(() => 
+    LETTER_WEIGHTS[Math.floor(Math.random() * LETTER_WEIGHTS.length)]
+  );
   return {
     shape,
     letters,
@@ -148,6 +139,31 @@ function createEmptyGrid(): Cell[][] {
   );
 }
 
+function getRotatedShape(figure: Figure, rotation: number = 0): number[][] {
+  const actualRotation = rotation || figure.rotation || 0;
+  if (actualRotation === 0) return figure.shape;
+  
+  // Apply rotation transformation
+  const centerX = Math.max(...figure.shape.map(([_, col]) => col)) / 2;
+  const centerY = Math.max(...figure.shape.map(([row, _]) => row)) / 2;
+  
+  return figure.shape.map(([row, col]) => {
+    const x = col - centerX;
+    const y = row - centerY;
+    
+    switch (actualRotation) {
+      case 90:
+        return [Math.round(x + centerY), Math.round(-y + centerX)];
+      case 180:
+        return [Math.round(-x + centerY), Math.round(-y + centerX)];
+      case 270:
+        return [Math.round(-x + centerY), Math.round(y + centerX)];
+      default:
+        return [row, col];
+    }
+  });
+}
+
 export const useGameStore = create<GameState>()(
   subscribeWithSelector((set, get) => ({
     grid: createEmptyGrid(),
@@ -163,8 +179,6 @@ export const useGameStore = create<GameState>()(
     selectedLetters: [],
     currentWord: '',
     fallingAnimations: [],
-    isJokerActive: false,
-    jokerPositions: [],
     draggedFigure: null,
     isDragging: false,
 
@@ -287,9 +301,12 @@ export const useGameStore = create<GameState>()(
       const state = get();
       const newGrid = state.grid.map(row => row.map(cell => ({ ...cell, isHovered: false })));
       
+      // Get rotated shape
+      const rotatedShape = getRotatedShape(figure, rotation);
+      
       // Check if placement is valid
-      for (let i = 0; i < figure.shape.length; i++) {
-        const [shapeRow, shapeCol] = figure.shape[i];
+      for (let i = 0; i < rotatedShape.length; i++) {
+        const [shapeRow, shapeCol] = rotatedShape[i];
         const gridRow = position.row + shapeRow;
         const gridCol = position.col + shapeCol;
         
@@ -302,10 +319,9 @@ export const useGameStore = create<GameState>()(
         }
       }
       
-      // Place the figure and collect joker positions
-      const jokerPositions: Array<{ row: number; col: number }> = [];
-      for (let i = 0; i < figure.shape.length; i++) {
-        const [shapeRow, shapeCol] = figure.shape[i];
+      // Place the figure
+      for (let i = 0; i < rotatedShape.length; i++) {
+        const [shapeRow, shapeCol] = rotatedShape[i];
         const gridRow = position.row + shapeRow;
         const gridCol = position.col + shapeCol;
         
@@ -314,11 +330,6 @@ export const useGameStore = create<GameState>()(
           isFixed: true,
           isHovered: false
         };
-        
-        // Check for jokers
-        if (figure.letters[i] === '*') {
-          jokerPositions.push({ row: gridRow, col: gridCol });
-        }
       }
       
       // Remove figure from queue and add new one
@@ -331,11 +342,6 @@ export const useGameStore = create<GameState>()(
         score: state.score + 10,
         hoveredCells: []
       });
-      
-      // If jokers were placed, activate joker selection
-      if (jokerPositions.length > 0) {
-        get().activateJoker(jokerPositions);
-      }
       
       get().saveToCloud();
       return true;
@@ -353,38 +359,6 @@ export const useGameStore = create<GameState>()(
       });
       
       set({ queue: newQueue });
-    },
-
-    activateJoker: (positions: Array<{ row: number; col: number }>) => {
-      set({ 
-        isJokerActive: true, 
-        jokerPositions: positions 
-      });
-    },
-
-    replaceJoker: (letter: string) => {
-      const state = get();
-      const newGrid = state.grid.map(row => row.map(cell => ({ ...cell })));
-      
-      // Replace all joker positions with the selected letter
-      state.jokerPositions.forEach(({ row, col }) => {
-        if (newGrid[row][col].letter === '*') {
-          newGrid[row][col].letter = letter;
-        }
-      });
-      
-      set({ 
-        grid: newGrid,
-        isJokerActive: false, 
-        jokerPositions: [] 
-      });
-    },
-
-    cancelJoker: () => {
-      set({ 
-        isJokerActive: false, 
-        jokerPositions: [] 
-      });
     },
 
     checkIn: () => {

@@ -228,11 +228,9 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
                       style={{
                         gridColumn: col + 1,
                         gridRow: row + 1,
-                        background: figure.letters[i] === '*' 
-                          ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
-                          : 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+                        background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
                         color: '#ffffff',
-                        border: `1px solid ${figure.letters[i] === '*' ? 'rgba(245, 158, 11, 0.5)' : 'rgba(8, 145, 178, 0.5)'}`
+                        border: '1px solid rgba(8, 145, 178, 0.5)'
                       }}
                       variants={{
                         hidden: { opacity: 0, scale: 0.5, rotate: -180 },
@@ -254,20 +252,7 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
                         animate={{ opacity: 1 }}
                         transition={{ delay: i * 0.1 + 0.2 }}
                       >
-                        {figure.letters[i] === '*' ? (
-                          <motion.span
-                            animate={{ rotate: [0, 360] }}
-                            transition={{ 
-                              duration: 2,
-                              repeat: Infinity,
-                              ease: "linear"
-                            }}
-                          >
-                            ★
-                          </motion.span>
-                        ) : (
-                          figure.letters[i].toUpperCase()
-                        )}
+                        {figure.letters[i].toUpperCase()}
                       </motion.span>
                     </motion.div>
                   ))}

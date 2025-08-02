@@ -5,7 +5,6 @@ import GameGrid from '../components/GameGrid';
 import WordBuilder from '../components/WordBuilder';
 import FigureQueue from '../components/FigureQueue';
 import ScoreDisplay from '../components/ScoreDisplay';
-import LetterSelector from '../components/LetterSelector';
 import { useGameStore } from '../store/gameStore';
 import { useTouchOptimization } from '../hooks/use-touch-optimization';
 
@@ -68,7 +67,7 @@ const itemVariants = {
 };
 
 const Index: React.FC = () => {
-  const { init, isInitialized, isJokerActive, replaceJoker, cancelJoker, fallingAnimations } = useGameStore();
+  const { init, isInitialized, fallingAnimations } = useGameStore();
   const [recentWords, setRecentWords] = useState<string[]>([]);
   const [isPageLoaded, setIsPageLoaded] = useState(false);
   
@@ -194,13 +193,13 @@ const Index: React.FC = () => {
           </AnimatePresence>
         </motion.div>
         
-        {/* Recent Words Carousel - Below Queue */}
+        {/* Score Display */}
         <motion.div
           variants={itemVariants}
           className="w-full flex-shrink-0 mt-2"
         >
           <motion.div 
-            className="flex items-center gap-3 p-3 rounded-2xl min-h-[60px] backdrop-blur-sm"
+            className="flex items-center justify-center p-3 rounded-2xl min-h-[60px] backdrop-blur-sm"
             style={{
               background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
               border: '1px solid rgba(148, 163, 184, 0.2)',
@@ -212,111 +211,12 @@ const Index: React.FC = () => {
             }}
             transition={{ duration: 0.2 }}
           >
-            <ScoreDisplay />
-            
-            <AnimatePresence>
-              {recentWords.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, width: 0 }}
-                  animate={{ opacity: 1, width: "auto" }}
-                  exit={{ opacity: 0, width: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex items-center gap-3 flex-1"
-                >
-                  <motion.div 
-                    className="w-px h-6 bg-white/20"
-                    initial={{ scaleY: 0 }}
-                    animate={{ scaleY: 1 }}
-                    transition={{ delay: 0.2 }}
-                  />
-                  <motion.div 
-                    className="flex gap-2 overflow-x-auto scrollbar-hide flex-1"
-                    style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-                    variants={{
-                      visible: {
-                        transition: {
-                          staggerChildren: 0.1
-                        }
-                      }
-                    }}
-                    initial="hidden"
-                    animate="visible"
-                  >
-                    {recentWords.map((word, index) => (
-                      <motion.span
-                        key={`${word}-${index}`}
-                        className="px-3 py-1 rounded-lg text-sm font-medium whitespace-nowrap flex-shrink-0"
-                        style={{
-                          backgroundColor: 'rgba(6, 182, 212, 0.2)',
-                          color: '#06b6d4',
-                          border: '1px solid rgba(6, 182, 212, 0.3)'
-                        }}
-                        variants={{
-                          hidden: { 
-                            scale: 0, 
-                            opacity: 0,
-                            x: 20
-                          },
-                          visible: { 
-                            scale: 1, 
-                            opacity: 1,
-                            x: 0,
-                            transition: {
-                              type: "spring",
-                              stiffness: 500,
-                              damping: 25
-                            }
-                          }
-                        }}
-                        whileHover={{ 
-                          scale: 1.05,
-                          backgroundColor: 'rgba(6, 182, 212, 0.3)',
-                          boxShadow: '0 0 15px rgba(6, 182, 212, 0.3)'
-                        }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        {word.split('').map((letter, letterIndex) => (
-                          <motion.span
-                            key={letterIndex}
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ 
-                              delay: letterIndex * 0.05,
-                              type: "spring",
-                              stiffness: 400
-                            }}
-                          >
-                            {letter.toUpperCase()}
-                          </motion.span>
-                        ))}
-                      </motion.span>
-                    ))}
-                  </motion.div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <ScoreDisplay recentWords={recentWords} />
           </motion.div>
         </motion.div>
         
       </motion.main>
 
-      {/* Letter Selector Overlay - Appears when joker is active */}
-      <AnimatePresence>
-        {isJokerActive && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <LetterSelector
-              isOpen={isJokerActive}
-              onClose={cancelJoker}
-              onSelectLetter={replaceJoker}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* Particle Animation Overlay */}
       <motion.div 

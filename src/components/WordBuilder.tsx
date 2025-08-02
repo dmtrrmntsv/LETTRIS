@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X, Send, RotateCcw } from 'lucide-react';
+import { Check, X } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { getDictionary } from '../utils/dictionary';
 
@@ -12,6 +12,9 @@ const WordBuilder: React.FC<WordBuilderProps> = ({ onRecentWordsUpdate }) => {
   const { selectedLetters, currentWord, submitWord, clearSelection } = useGameStore();
   const [validationState, setValidationState] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [recentWords, setRecentWords] = useState<string[]>([]);
+  const [touchStartTime, setTouchStartTime] = useState<number>(0);
+  const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const wordBuilderRef = useRef<HTMLDivElement>(null);
 
   const handleSubmitWord = useCallback(async () => {
     if (currentWord.length < 3) return;
@@ -65,13 +68,42 @@ const WordBuilder: React.FC<WordBuilderProps> = ({ onRecentWordsUpdate }) => {
     setValidationState('idle');
   }, [clearSelection]);
 
+  // Gesture-based submission logic
+  const handleTouchStart = useCallback((event: React.TouchEvent) => {
+    if (currentWord.length < 3) return;
+    
+    const touch = event.touches[0];
+    setTouchStartTime(Date.now());
+    setTouchStartPos({ x: touch.clientX, y: touch.clientY });
+  }, [currentWord]);
+
+  const handleTouchEnd = useCallback((event: React.TouchEvent) => {
+    if (currentWord.length < 3) return;
+    
+    const touch = event.changedTouches[0];
+    const touchEndTime = Date.now();
+    const touchDuration = touchEndTime - touchStartTime;
+    
+    const deltaX = touch.clientX - touchStartPos.x;
+    const deltaY = touch.clientY - touchStartPos.y;
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // Short tap (< 300ms) and minimal movement = submit word
+    if (touchDuration < 300 && distance < 30) {
+      handleSubmitWord();
+    }
+    // Drag back gesture: significant leftward movement or upward movement
+    else if (deltaX < -50 || deltaY < -50) {
+      handleClearSelection();
+    }
+  }, [currentWord, touchStartTime, touchStartPos, handleSubmitWord, handleClearSelection]);
+
   // Simplified event handling - only handle clicks outside to clear
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as HTMLElement;
       if (!target.closest('.word-builder-area') && 
           !target.closest('.game-grid') && 
-          !target.closest('.ton-button') && 
           currentWord.length > 0) {
         handleClearSelection();
       }
@@ -103,215 +135,120 @@ const WordBuilder: React.FC<WordBuilderProps> = ({ onRecentWordsUpdate }) => {
   };
 
   return (
-    <div className="w-full space-y-4 word-builder-area">
+    <div className="w-full word-builder-area">
       
-      {/* Current Word Display */}
-      <AnimatePresence mode="wait">
-        {currentWord && (
-          <motion.div
-            key={currentWord}
-            initial={{ opacity: 0, y: -20, scale: 0.8 }}
-            animate={{ 
-              opacity: 1, 
-              y: 0,
-              scale: 1,
-              rotate: validationState === 'invalid' ? [0, -2, 2, -2, 2, 0] : 0
-            }}
-            exit={{ opacity: 0, y: -20, scale: 0.8 }}
-            transition={{ 
-              duration: 0.4,
-              type: "spring",
-              stiffness: 300,
-              damping: 25
-            }}
-            className="text-center"
-          >
-            <motion.div 
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-xl backdrop-blur-sm border"
-              style={{ 
-                background: getBgColor(),
-                color: '#ffffff',
-                border: `2px solid ${getWordDisplayColor()}`,
-                boxShadow: `0 10px 30px -5px ${getWordDisplayColor()}30`
+      {/* Current Word Display - Fixed Height Container */}
+      <div className="text-center h-20 flex items-center justify-center">
+        <AnimatePresence mode="wait">
+          {currentWord && (
+            <motion.div
+              key={currentWord}
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ 
+                opacity: 1, 
+                scale: 1,
+                rotate: validationState === 'invalid' ? [-2, 2] : 0
               }}
-              animate={{
-                boxShadow: validationState === 'valid' 
-                  ? `0 10px 30px -5px ${getWordDisplayColor()}60`
-                  : validationState === 'invalid'
-                  ? `0 10px 30px -5px ${getWordDisplayColor()}60`
-                  : `0 10px 30px -5px ${getWordDisplayColor()}30`
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ 
+                duration: 0.4,
+                type: "spring",
+                stiffness: 300,
+                damping: 25
               }}
             >
-              <AnimatePresence mode="wait">
-                {validationState === 'valid' && (
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    exit={{ scale: 0, rotate: 180 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  >
-                    <Check className="w-6 h-6" />
-                  </motion.div>
-                )}
-                {validationState === 'invalid' && (
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    exit={{ scale: 0, rotate: 180 }}
-                    transition={{ type: "spring", stiffness: 500, damping: 25 }}
-                  >
-                    <X className="w-6 h-6" />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-              
-              <motion.span
-                key={currentWord}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.1 }}
+              <motion.div 
+                ref={wordBuilderRef}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-xl backdrop-blur-sm border cursor-pointer"
+                style={{ 
+                  background: getBgColor(),
+                  color: '#ffffff',
+                  border: `2px solid ${getWordDisplayColor()}`,
+                  boxShadow: `0 10px 30px -5px ${getWordDisplayColor()}30`
+                }}
+                animate={{
+                  boxShadow: validationState === 'valid' 
+                    ? `0 10px 30px -5px ${getWordDisplayColor()}60`
+                    : validationState === 'invalid'
+                    ? `0 10px 30px -5px ${getWordDisplayColor()}60`
+                    : `0 10px 30px -5px ${getWordDisplayColor()}30`
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onClick={() => {
+                  if (currentWord.length >= 3) {
+                    handleSubmitWord();
+                  }
+                }}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
-                {currentWord.split('').map((letter, index) => (
-                  <motion.span
-                    key={`${currentWord}-${index}`}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ 
-                      delay: index * 0.05,
-                      type: "spring",
-                      stiffness: 400
-                    }}
-                  >
-                    {letter.toUpperCase()}
-                  </motion.span>
-                ))}
-              </motion.span>
+                <AnimatePresence mode="wait">
+                  {validationState === 'valid' && (
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      exit={{ scale: 0, rotate: 180 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                    >
+                      <Check className="w-6 h-6" />
+                    </motion.div>
+                  )}
+                  {validationState === 'invalid' && (
+                    <motion.div
+                      initial={{ scale: 0, rotate: -180 }}
+                      animate={{ scale: 1, rotate: 0 }}
+                      exit={{ scale: 0, rotate: 180 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                    >
+                      <X className="w-6 h-6" />
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+                
+                <motion.span
+                  key={currentWord}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  {currentWord.split('').map((letter, index) => (
+                    <motion.span
+                      key={`${currentWord}-${index}`}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ 
+                        delay: index * 0.05,
+                        type: "spring",
+                        stiffness: 400
+                      }}
+                    >
+                      {letter.toUpperCase()}
+                    </motion.span>
+                  ))}
+                </motion.span>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
 
-      {/* Action Buttons */}
-      <AnimatePresence>
-        {currentWord && currentWord.length >= 3 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ 
-              delay: 0.2,
-              type: "spring",
-              stiffness: 300
-            }}
-            className="flex justify-center gap-4"
-          >
-            <motion.button
-              className="ton-button flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm backdrop-blur-sm border border-white/10"
-              style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                color: '#ffffff',
-                boxShadow: '0 8px 25px -5px rgba(16, 185, 129, 0.3)'
-              }}
-              onClick={handleSubmitWord}
-              whileHover={{ 
-                scale: 1.05,
-                boxShadow: '0 12px 35px -5px rgba(16, 185, 129, 0.4)'
-              }}
-              whileTap={{ scale: 0.95 }}
-              disabled={validationState !== 'idle'}
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <motion.div
-                animate={{ rotate: validationState === 'idle' ? 0 : 360 }}
-                transition={{ duration: 0.5 }}
-              >
-                <Send className="w-4 h-4" />
-              </motion.div>
-              Отправить
-            </motion.button>
-            
-            <motion.button
-              className="ton-button flex items-center gap-2 px-6 py-3 rounded-xl font-medium text-sm backdrop-blur-sm border border-white/10"
-              style={{
-                background: 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)',
-                color: '#ffffff',
-                boxShadow: '0 8px 25px -5px rgba(107, 114, 128, 0.3)'
-              }}
-              onClick={handleClearSelection}
-              whileHover={{ 
-                scale: 1.05,
-                boxShadow: '0 12px 35px -5px rgba(107, 114, 128, 0.4)'
-              }}
-              whileTap={{ scale: 0.95 }}
-              initial={{ x: 20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              transition={{ delay: 0.3 }}
-            >
-              <motion.div
-                whileHover={{ rotate: -180 }}
-                transition={{ duration: 0.3 }}
-              >
-                <RotateCcw className="w-4 h-4" />
-              </motion.div>
-              Сбросить
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Recent Words Display */}
-      <AnimatePresence>
-        {recentWords.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="text-center"
-          >
+      {/* Gesture Instructions - Fixed Height Container */}
+      <div className="text-center h-8 flex items-center justify-center">
+        <AnimatePresence>
+          {currentWord && currentWord.length >= 3 && (
             <motion.p 
-              className="text-xs text-slate-400 mb-2"
+              className="text-xs text-slate-400"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
             >
-              Последние слова:
+              Коснитесь слова для отправки • Проведите влево/вверх для сброса
             </motion.p>
-            <motion.div 
-              className="flex justify-center gap-2 flex-wrap"
-              variants={{
-                visible: {
-                  transition: {
-                    staggerChildren: 0.1
-                  }
-                }
-              }}
-              initial="hidden"
-              animate="visible"
-            >
-              {recentWords.slice(0, 3).map((word, index) => (
-                <motion.span
-                  key={`${word}-${index}`}
-                  className="px-3 py-1 rounded-lg text-xs font-medium"
-                  style={{
-                    background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(51, 65, 85, 0.8) 100%)',
-                    color: '#94a3b8',
-                    border: '1px solid rgba(148, 163, 184, 0.2)'
-                  }}
-                  variants={{
-                    hidden: { opacity: 0, scale: 0.8, y: 10 },
-                    visible: { opacity: 1, scale: 1, y: 0 }
-                  }}
-                  whileHover={{ scale: 1.05 }}
-                >
-                  {word.toUpperCase()}
-                </motion.span>
-              ))}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };

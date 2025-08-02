@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
-import LetterSelector from './LetterSelector';
+import FigureQueue from './FigureQueue';
 
 interface Figure {
   shape: number[][];
@@ -52,11 +52,39 @@ const GameGrid: React.FC<GameGridProps> = () => {
     return areAdjacent(lastSelected, { row, col });
   };
 
+  // Get rotated shape for a figure
+  const getRotatedShape = useCallback((figure: Figure) => {
+    const rotation = figure.rotation || 0;
+    if (rotation === 0) return figure.shape;
+    
+    // Apply rotation transformation
+    const centerX = Math.max(...figure.shape.map(([_, col]) => col)) / 2;
+    const centerY = Math.max(...figure.shape.map(([row, _]) => row)) / 2;
+    
+    return figure.shape.map(([row, col]) => {
+      const x = col - centerX;
+      const y = row - centerY;
+      
+      switch (rotation) {
+        case 90:
+          return [Math.round(x + centerY), Math.round(-y + centerX)];
+        case 180:
+          return [Math.round(-x + centerY), Math.round(-y + centerX)];
+        case 270:
+          return [Math.round(-x + centerY), Math.round(y + centerX)];
+        default:
+          return [row, col];
+      }
+    });
+  }, []);
+
   // Find the best anchor position for a figure that would include the target position
   const findBestAnchorPosition = useCallback((targetRow: number, targetCol: number, figure: Figure) => {
+    const rotatedShape = getRotatedShape(figure);
+    
     // Try all possible anchor positions that would result in the figure covering the target position
-    for (let i = 0; i < figure.shape.length; i++) {
-      const [shapeRow, shapeCol] = figure.shape[i];
+    for (let i = 0; i < rotatedShape.length; i++) {
+      const [shapeRow, shapeCol] = rotatedShape[i];
       const anchorRow = targetRow - shapeRow;
       const anchorCol = targetCol - shapeCol;
       
@@ -64,8 +92,8 @@ const GameGrid: React.FC<GameGridProps> = () => {
       let canPlace = true;
       const hoveredCells: Array<{ row: number; col: number }> = [];
       
-      for (let j = 0; j < figure.shape.length; j++) {
-        const [checkShapeRow, checkShapeCol] = figure.shape[j];
+      for (let j = 0; j < rotatedShape.length; j++) {
+        const [checkShapeRow, checkShapeCol] = rotatedShape[j];
         const gridRow = anchorRow + checkShapeRow;
         const gridCol = anchorCol + checkShapeCol;
         
@@ -88,7 +116,7 @@ const GameGrid: React.FC<GameGridProps> = () => {
     }
     
     return null;
-  }, [grid]);
+  }, [grid, getRotatedShape]);
 
   // Handle letter selection for word building
   const handleLetterClick = useCallback((row: number, col: number) => {
@@ -239,7 +267,7 @@ const GameGrid: React.FC<GameGridProps> = () => {
     if (row >= 0 && row < 5 && col >= 0 && col < 5) {
       const result = findBestAnchorPosition(row, col, draggedFigure);
       if (result) {
-        placeFigure(draggedFigure, { row: result.anchorRow, col: result.anchorCol }, 0);
+        placeFigure(draggedFigure, { row: result.anchorRow, col: result.anchorCol }, draggedFigure.rotation || 0);
       }
     }
     
@@ -317,7 +345,7 @@ const GameGrid: React.FC<GameGridProps> = () => {
     if (draggedFigure) {
       const result = findBestAnchorPosition(row, col, draggedFigure);
       if (result) {
-        placeFigure(draggedFigure, { row: result.anchorRow, col: result.anchorCol }, 0);
+        placeFigure(draggedFigure, { row: result.anchorRow, col: result.anchorCol }, draggedFigure.rotation || 0);
       }
       setDraggedFigure(null);
       setIsDragging(false);
@@ -448,7 +476,6 @@ const GameGrid: React.FC<GameGridProps> = () => {
                 onDragEnter={(e) => handleDragEnter(rowIndex, colIndex, e)}
                 onDrop={(e) => handleDrop(rowIndex, colIndex, e)}
                 whileTap={cell?.letter ? { scale: 0.9 } : {}}
-                layout
               >
                 {cell?.letter?.toUpperCase() || ''}
                 {isSelected && (
@@ -474,62 +501,10 @@ const GameGrid: React.FC<GameGridProps> = () => {
       </div>
 
       {/* Figure Queue */}
-      <div className="w-full max-w-sm">
-        <h3 
-          className="text-sm font-semibold mb-3 text-center tracking-wide"
-          style={{ color: '#94a3b8' }}
-        >
-          ФИГУРЫ
-        </h3>
-        <div className="flex justify-center gap-4">
-          {queue.map((figure, index) => (
-            <motion.div
-              key={figure.id}
-              className="p-4 rounded-2xl cursor-move touch-friendly relative"
-              style={{
-                background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(148, 163, 184, 0.2)',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
-              }}
-              whileHover={{ scale: 1.05 }}
-              layout
-            >
-              <div
-                draggable
-                onDragStart={(e: React.DragEvent) => handleDragStart(figure, e)}
-                onTouchStart={handleFigureTouchStart(figure)}
-                className="w-full h-full"
-              >
-                <div 
-                  className="grid gap-1"
-                  style={{ 
-                    gridTemplateColumns: `repeat(${Math.max(...figure.shape.map(([_, col]) => col)) + 1}, 1fr)`,
-                    gridTemplateRows: `repeat(${Math.max(...figure.shape.map(([row, _]) => row)) + 1}, 1fr)`
-                  }}
-                >
-                  {figure.shape.map(([row, col], i) => (
-                    <div
-                      key={i}
-                      className="w-8 h-8 border border-white/30 flex items-center justify-center text-sm font-bold rounded-xl shadow-sm"
-                      style={{
-                        gridColumn: col + 1,
-                        gridRow: row + 1,
-                        background: figure.letters[i] === '*' 
-                          ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
-                          : 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
-                        color: '#ffffff'
-                      }}
-                    >
-                      {figure.letters[i] === '*' ? '★' : figure.letters[i].toUpperCase()}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
+      <FigureQueue 
+        onFigureDragStart={handleDragStart}
+        onFigureTouchStart={handleFigureTouchStart}
+      />
       
     </div>
   );
