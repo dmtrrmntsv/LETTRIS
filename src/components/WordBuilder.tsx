@@ -1,14 +1,14 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, X } from 'lucide-react';
+import { Check, X, Send, RotateCcw } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { getDictionary } from '../utils/dictionary';
+import ScoreDisplay from './ScoreDisplay';
 
 const WordBuilder: React.FC = () => {
   const { selectedLetters, currentWord, submitWord, clearSelection } = useGameStore();
   const [validationState, setValidationState] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [recentWords, setRecentWords] = useState<string[]>([]);
-  const [isBuilding, setIsBuilding] = useState(false);
 
   const handleSubmitWord = useCallback(async () => {
     if (currentWord.length < 3) return;
@@ -34,7 +34,6 @@ const WordBuilder: React.FC = () => {
       setTimeout(() => {
         submitWord(currentWord);
         setValidationState('idle');
-        setIsBuilding(false);
       }, 800);
     } else {
       // Error haptic feedback
@@ -52,42 +51,31 @@ const WordBuilder: React.FC = () => {
     }
   }, [currentWord, submitWord]);
 
-  // Handle touch-based word submission
+  const handleClearSelection = useCallback(() => {
+    clearSelection();
+    setValidationState('idle');
+  }, [clearSelection]);
+
+  // Simplified event handling - only handle clicks outside to clear
   useEffect(() => {
-    const handleTouchEnd = () => {
-      if (isBuilding && currentWord.length >= 3) {
-        handleSubmitWord();
-      }
-      setIsBuilding(false);
-    };
-
-    const handleTouchStart = () => {
-      if (selectedLetters.length > 0) {
-        setIsBuilding(true);
-      }
-    };
-
-    // Handle clicks outside the word area to discard
     const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       const target = event.target as HTMLElement;
-      if (!target.closest('.word-builder-area') && !target.closest('.game-grid') && currentWord.length > 0) {
-        clearSelection();
-        setIsBuilding(false);
+      if (!target.closest('.word-builder-area') && 
+          !target.closest('.game-grid') && 
+          !target.closest('.ton-button') && 
+          currentWord.length > 0) {
+        handleClearSelection();
       }
     };
 
-    document.addEventListener('touchend', handleTouchEnd);
-    document.addEventListener('touchstart', handleTouchStart);
     document.addEventListener('click', handleClickOutside);
     document.addEventListener('touchend', handleClickOutside);
 
     return () => {
-      document.removeEventListener('touchend', handleTouchEnd);
-      document.removeEventListener('touchstart', handleTouchStart);
       document.removeEventListener('click', handleClickOutside);
       document.removeEventListener('touchend', handleClickOutside);
     };
-  }, [isBuilding, currentWord, selectedLetters, handleSubmitWord, clearSelection]);
+  }, [currentWord, handleClearSelection]);
 
   const getWordDisplayColor = () => {
     switch (validationState) {
@@ -127,56 +115,80 @@ const WordBuilder: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Touch Instructions */}
+      {/* Action Buttons */}
       {currentWord && currentWord.length >= 3 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center"
+          className="flex justify-center gap-3"
         >
-          <div 
-            className="inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium ton-glass"
-            style={{ color: 'var(--tg-theme-hint-color)' }}
+          <motion.button
+            className="ton-button flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm"
+            style={{
+              background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+              color: '#ffffff'
+            }}
+            onClick={handleSubmitWord}
+            whileTap={{ scale: 0.95 }}
+            disabled={validationState !== 'idle'}
           >
-            {isBuilding ? 'Отпустите для отправки' : 'Нажмите в любом месте для сброса'}
-          </div>
+            <Send className="w-4 h-4" />
+            Отправить
+          </motion.button>
+          
+          <motion.button
+            className="ton-button flex items-center gap-2 px-4 py-2 rounded-xl font-medium text-sm"
+            style={{
+              background: 'linear-gradient(135deg, #374151 0%, #4b5563 100%)',
+              color: '#f1f5f9'
+            }}
+            onClick={handleClearSelection}
+            whileTap={{ scale: 0.95 }}
+          >
+            <RotateCcw className="w-4 h-4" />
+            Сбросить
+          </motion.button>
         </motion.div>
       )}
 
-      {/* Recent Words */}
-      <AnimatePresence>
-        {recentWords.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="ton-glass rounded-2xl p-3"
-          >
-            <h3 
-              className="text-xs font-medium mb-2"
-              style={{ color: 'var(--tg-theme-section-header-text-color)' }}
+      {/* Score Display and Recent Words */}
+      <div className="flex flex-col gap-3">
+        <ScoreDisplay />
+        
+        <AnimatePresence>
+          {recentWords.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="ton-glass rounded-2xl p-3"
             >
-              Найденные слова
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {recentWords.map((word, index) => (
-                <motion.span
-                  key={`${word}-${index}`}
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  className="px-2 py-1 rounded-lg text-xs font-medium"
-                  style={{
-                    backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-                    color: 'var(--tg-theme-text-color)'
-                  }}
-                >
-                  {word.toUpperCase()}
-                </motion.span>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <h3 
+                className="text-xs font-medium mb-2"
+                style={{ color: 'var(--tg-theme-section-header-text-color)' }}
+              >
+                Найденные слова
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {recentWords.map((word, index) => (
+                  <motion.span
+                    key={`${word}-${index}`}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    className="px-2 py-1 rounded-lg text-xs font-medium"
+                    style={{
+                      backgroundColor: 'var(--tg-theme-secondary-bg-color)',
+                      color: 'var(--tg-theme-text-color)'
+                    }}
+                  >
+                    {word.toUpperCase()}
+                  </motion.span>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
       
     </div>
   );

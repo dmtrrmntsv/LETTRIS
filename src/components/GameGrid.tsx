@@ -21,6 +21,7 @@ const GameGrid: React.FC = () => {
     placeFigure, 
     selectedLetters, 
     addSelectedLetter, 
+    removeSelectedLetter,
     currentWord,
     setHoveredCells,
     clearHoveredCells
@@ -33,11 +34,11 @@ const GameGrid: React.FC = () => {
   const [isSelectingWord, setIsSelectingWord] = useState(false);
   const gridRef = useRef<HTMLDivElement>(null);
 
-  // Check if two cells are adjacent (for snake-like word building)
+  // Check if two cells are adjacent (includes diagonals for 8-directional word building)
   const areAdjacent = (cell1: { row: number; col: number }, cell2: { row: number; col: number }) => {
     const rowDiff = Math.abs(cell1.row - cell2.row);
     const colDiff = Math.abs(cell1.col - cell2.col);
-    return (rowDiff === 1 && colDiff === 0) || (rowDiff === 0 && colDiff === 1);
+    return (rowDiff <= 1 && colDiff <= 1) && !(rowDiff === 0 && colDiff === 0);
   };
 
   // Check if a cell can be selected (snake rule)
@@ -106,16 +107,23 @@ const GameGrid: React.FC = () => {
   }, [grid, addSelectedLetter, selectedLetters, canSelectCell]);
 
   // Word selection drag handlers
-  const handleWordSelectionStart = useCallback((row: number, col: number, event: React.MouseEvent | React.TouchEvent) => {
+  const handleWordSelectionStart = useCallback((row: number, col: number) => {
     const cell = grid[row][col];
     if (!cell?.letter || isDragging) return;
     
     setIsSelectingWord(true);
     handleLetterClick(row, col);
-    
-    // Prevent text selection and other behaviors during drag
-    event.preventDefault();
   }, [grid, isDragging, handleLetterClick]);
+
+  const handleMouseDownSelection = useCallback((row: number, col: number, event: React.MouseEvent) => {
+    event.preventDefault();
+    handleWordSelectionStart(row, col);
+  }, [handleWordSelectionStart]);
+
+  const handleTouchStartSelection = useCallback((row: number, col: number, event: React.TouchEvent) => {
+    event.preventDefault();
+    handleWordSelectionStart(row, col);
+  }, [handleWordSelectionStart]);
 
   const handleWordSelectionMove = useCallback((row: number, col: number) => {
     if (!isSelectingWord) return;
@@ -123,20 +131,34 @@ const GameGrid: React.FC = () => {
     const cell = grid[row][col];
     if (!cell?.letter) return;
     
-    // Check if already selected
-    const isAlreadySelected = selectedLetters.some(pos => pos.row === row && pos.col === col);
-    if (isAlreadySelected) return;
+    // Check if already selected - allow backtracking
+    const selectedIndex = selectedLetters.findIndex(pos => pos.row === row && pos.col === col);
+    if (selectedIndex !== -1) {
+      // If dragging back to a previously selected letter, remove all letters after it
+      if (selectedIndex < selectedLetters.length - 1) {
+        const lettersToRemove = selectedLetters.slice(selectedIndex + 1);
+        lettersToRemove.forEach(letter => {
+          removeSelectedLetter(letter.row, letter.col);
+        });
+        
+        // Haptic feedback for backtrack
+        if ('vibrate' in navigator) {
+          navigator.vibrate(8);
+        }
+      }
+      return;
+    }
     
-    // Check snake rule
+    // Check snake rule for new letters
     if (!canSelectCell(row, col)) return;
     
-    // Haptic feedback
+    // Haptic feedback for new selection
     if ('vibrate' in navigator) {
       navigator.vibrate(5);
     }
     
     addSelectedLetter({ row, col, letter: cell.letter });
-  }, [isSelectingWord, grid, selectedLetters, canSelectCell, addSelectedLetter]);
+  }, [isSelectingWord, grid, selectedLetters, canSelectCell, addSelectedLetter, removeSelectedLetter]);
 
   const handleWordSelectionEnd = useCallback(() => {
     setIsSelectingWord(false);
@@ -401,9 +423,9 @@ const GameGrid: React.FC = () => {
                 className={getCellClass(cell, rowIndex, colIndex)}
                 style={getCellStyle(cell, isSelected, rowIndex, colIndex)}
                 onClick={() => handleLetterClick(rowIndex, colIndex)}
-                onMouseDown={(e) => handleWordSelectionStart(rowIndex, colIndex, e)}
+                onMouseDown={(e) => handleMouseDownSelection(rowIndex, colIndex, e)}
                 onMouseEnter={() => handleWordSelectionMove(rowIndex, colIndex)}
-                onTouchStart={(e) => handleWordSelectionStart(rowIndex, colIndex, e)}
+                onTouchStart={(e) => handleTouchStartSelection(rowIndex, colIndex, e)}
                 onTouchMove={(e) => {
                   if (e.touches[0] && gridRef.current) {
                     const touch = e.touches[0];

@@ -12,6 +12,7 @@ interface Figure {
   shape: number[][];
   letters: string[];
   id: string;
+  rotation?: number;
 }
 
 interface SelectedLetter {
@@ -33,10 +34,12 @@ interface GameState {
   hoveredCells: Array<{ row: number; col: number }>;
   selectedLetters: SelectedLetter[];
   currentWord: string;
+  fallingAnimations: Array<{ from: {row: number, col: number}, to: {row: number, col: number}, letter: string }>;
   
   // Actions
   init: () => void;
   placeFigure: (figure: Figure, position: { row: number; col: number }, rotation: number) => boolean;
+  rotateFigure: (figureId: string, rotation: number) => void;
   checkIn: () => void;
   restoreLife: () => void;
   buyLife: () => boolean;
@@ -46,8 +49,10 @@ interface GameState {
   setHoveredCells: (cells: Array<{ row: number; col: number }>) => void;
   clearHoveredCells: () => void;
   addSelectedLetter: (letter: SelectedLetter) => void;
+  removeSelectedLetter: (row: number, col: number) => void;
   clearSelection: () => void;
   submitWord: (word: string) => void;
+  clearFallingAnimations: () => void;
 }
 
 // Improved letter frequency based on Russian language analysis
@@ -146,6 +151,7 @@ export const useGameStore = create<GameState>()(
     hoveredCells: [],
     selectedLetters: [],
     currentWord: '',
+    fallingAnimations: [],
 
     addSelectedLetter: (letter: SelectedLetter) => {
       const state = get();
@@ -164,6 +170,19 @@ export const useGameStore = create<GameState>()(
       });
     },
 
+    removeSelectedLetter: (row: number, col: number) => {
+      const state = get();
+      const newSelectedLetters = state.selectedLetters.filter(
+        sel => !(sel.row === row && sel.col === col)
+      );
+      const newWord = newSelectedLetters.map(sel => sel.letter).join('').toLowerCase();
+      
+      set({ 
+        selectedLetters: newSelectedLetters,
+        currentWord: newWord
+      });
+    },
+
     clearSelection: () => {
       set({ 
         selectedLetters: [],
@@ -174,8 +193,23 @@ export const useGameStore = create<GameState>()(
     submitWord: (word: string) => {
       const state = get();
       
-      // Calculate score based on word length and complexity
-      const score = word.length * 10 + (word.length > 5 ? 20 : 0);
+      // Progressive scoring formula
+      const progressiveScores: { [key: number]: number } = {
+        3: 3, 4: 5, 5: 6, 6: 8, 7: 10, 8: 13, 9: 16, 10: 20, 
+        11: 24, 12: 28, 13: 32, 14: 30
+      };
+      
+      // Hard letter bonuses: Ъ, Х, Э, Щ, Ю, Ф = +2 points each
+      const hardLetters = new Set(['ъ', 'х', 'э', 'щ', 'ю', 'ф']);
+      
+      let score = progressiveScores[word.length] || 0;
+      
+      // Add hard letter bonuses
+      for (const letter of word.toLowerCase()) {
+        if (hardLetters.has(letter)) {
+          score += 2;
+        }
+      }
       
       // Remove selected letters from grid
       const newGrid = state.grid.map(row => row.map(cell => ({ ...cell })));
@@ -184,17 +218,27 @@ export const useGameStore = create<GameState>()(
         newGrid[row][col] = { letter: null, isFixed: false, isHovered: false };
       });
       
-      // Apply gravity
-      const finalGrid = applyGravity(newGrid);
+      // Apply gravity with animations
+      const { newGrid: finalGrid, animations } = applyGravity(newGrid);
       
       set({
         grid: finalGrid,
         selectedLetters: [],
         currentWord: '',
-        score: state.score + score
+        score: state.score + score,
+        fallingAnimations: animations
       });
       
+      // Clear animations after they complete
+      setTimeout(() => {
+        get().clearFallingAnimations();
+      }, 600);
+      
       get().saveToCloud();
+    },
+
+    clearFallingAnimations: () => {
+      set({ fallingAnimations: [] });
     },
 
     init: () => {
@@ -269,6 +313,20 @@ export const useGameStore = create<GameState>()(
       
       get().saveToCloud();
       return true;
+    },
+
+    rotateFigure: (figureId: string, rotationDelta: number) => {
+      const state = get();
+      const newQueue = state.queue.map(figure => {
+        if (figure.id === figureId) {
+          const currentRotation = figure.rotation || 0;
+          const newRotation = (currentRotation + rotationDelta + 360) % 360;
+          return { ...figure, rotation: newRotation };
+        }
+        return figure;
+      });
+      
+      set({ queue: newQueue });
     },
 
     checkIn: () => {

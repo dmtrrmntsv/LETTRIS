@@ -47,7 +47,7 @@ class Trie {
 // Load words from the provided dictionary file
 const loadDictionary = async (): Promise<string[]> => {
   try {
-    const response = await fetch('/LETTRIS/russian_lemmas_3_14.txt');
+    const response = await fetch('/russian_lemmas_3_14.txt');
     const text = await response.text();
     return text.split('\n').map(word => word.trim()).filter(word => word.length > 0);
   } catch (error) {
@@ -167,15 +167,28 @@ export function scanWords(grid: any[][]): Array<{
   return wordsFound;
 }
 
-export function applyGravity(grid: any[][]): any[][] {
+export function applyGravity(grid: any[][]): { 
+  newGrid: any[][], 
+  animations: Array<{ from: {row: number, col: number}, to: {row: number, col: number}, letter: string }> 
+} {
   const newGrid = grid.map(row => row.map(cell => ({ ...cell })));
+  const gridSize = newGrid.length;
+  const colSize = newGrid[0]?.length || 0;
+  const animations: Array<{ from: {row: number, col: number}, to: {row: number, col: number}, letter: string }> = [];
   
-  for (let col = 0; col < 6; col++) {
-    let writeRow = 5; // Start from bottom
+  for (let col = 0; col < colSize; col++) {
+    let writeRow = gridSize - 1; // Start from bottom
     
-    for (let row = 5; row >= 0; row--) {
-      if (newGrid[row][col]?.letter) {
+    for (let row = gridSize - 1; row >= 0; row--) {
+      if (newGrid[row] && newGrid[row][col] && newGrid[row][col].letter) {
         if (writeRow !== row) {
+          // Record animation for this letter
+          animations.push({
+            from: { row, col },
+            to: { row: writeRow, col },
+            letter: newGrid[row][col].letter
+          });
+          
           newGrid[writeRow][col] = { ...newGrid[row][col] };
           newGrid[row][col] = { letter: null, isFixed: false, isHovered: false };
         }
@@ -184,5 +197,5 @@ export function applyGravity(grid: any[][]): any[][] {
     }
   }
   
-  return newGrid;
+  return { newGrid, animations };
 }
