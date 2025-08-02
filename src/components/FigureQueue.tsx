@@ -11,8 +11,8 @@ interface Figure {
 }
 
 interface FigureQueueProps {
-  onFigureDragStart: (figure: Figure, event: React.DragEvent | React.TouchEvent) => void;
-  onFigureTouchStart: (figure: Figure) => (event: React.TouchEvent) => void;
+  onFigureDragStart?: (figure: Figure, event: React.DragEvent | React.TouchEvent) => void;
+  onFigureTouchStart?: (figure: Figure) => (event: React.TouchEvent) => void;
 }
 
 const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTouchStart }) => {
@@ -124,8 +124,8 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
                   boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
                 }}
                 draggable
-                onDragStart={(e) => onFigureDragStart(figure, e)}
-                onTouchStart={onFigureTouchStart(figure)}
+                onDragStart={(e) => onFigureDragStart?.(figure, e)}
+                onTouchStart={onFigureTouchStart?.(figure)}
               >
                 <div 
                   className="grid gap-1"

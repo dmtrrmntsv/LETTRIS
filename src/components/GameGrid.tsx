@@ -1,11 +1,13 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '../store/gameStore';
+import LetterSelector from './LetterSelector';
 
 interface Figure {
   shape: number[][];
   letters: string[];
   id: string;
+  rotation?: number;
 }
 
 interface Cell {
@@ -14,7 +16,9 @@ interface Cell {
   isHovered: boolean;
 }
 
-const GameGrid: React.FC = () => {
+interface GameGridProps {}
+
+const GameGrid: React.FC<GameGridProps> = () => {
   const { 
     grid, 
     queue, 
@@ -490,7 +494,7 @@ const GameGrid: React.FC = () => {
               }}
               draggable
               onDragStart={(e) => handleDragStart(figure, e)}
-              onTouchStart={handleFigureTouchStart(figure)}
+              onTouchStart={(e: React.TouchEvent) => handleDragStart(figure, e)}
               whileHover={{ scale: 1.05 }}
               whileDrag={{ scale: 1.1, zIndex: 1000 }}
               layout
@@ -509,11 +513,13 @@ const GameGrid: React.FC = () => {
                     style={{
                       gridColumn: col + 1,
                       gridRow: row + 1,
-                      background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+                      background: figure.letters[i] === '*' 
+                        ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
+                        : 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
                       color: '#ffffff'
                     }}
                   >
-                    {figure.letters[i].toUpperCase()}
+                    {figure.letters[i] === '*' ? '★' : figure.letters[i].toUpperCase()}
                   </div>
                 ))}
               </div>

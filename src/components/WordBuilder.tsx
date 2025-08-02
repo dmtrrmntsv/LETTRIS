@@ -3,9 +3,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Check, X, Send, RotateCcw } from 'lucide-react';
 import { useGameStore } from '../store/gameStore';
 import { getDictionary } from '../utils/dictionary';
-import ScoreDisplay from './ScoreDisplay';
 
-const WordBuilder: React.FC = () => {
+interface WordBuilderProps {
+  onRecentWordsUpdate?: (words: string[]) => void;
+}
+
+const WordBuilder: React.FC<WordBuilderProps> = ({ onRecentWordsUpdate }) => {
   const { selectedLetters, currentWord, submitWord, clearSelection } = useGameStore();
   const [validationState, setValidationState] = useState<'idle' | 'valid' | 'invalid'>('idle');
   const [recentWords, setRecentWords] = useState<string[]>([]);
@@ -19,7 +22,13 @@ const WordBuilder: React.FC = () => {
     setValidationState(isValid ? 'valid' : 'invalid');
     
     if (isValid) {
-      setRecentWords(prev => [currentWord, ...prev.slice(0, 4)]);
+      const newRecentWords = [currentWord, ...recentWords.slice(0, 4)];
+      setRecentWords(newRecentWords);
+      
+      // Update parent component
+      if (onRecentWordsUpdate) {
+        onRecentWordsUpdate(newRecentWords);
+      }
       
       // Haptic feedback
       if ('vibrate' in navigator) {
@@ -49,7 +58,7 @@ const WordBuilder: React.FC = () => {
         setValidationState('idle');
       }, 1000);
     }
-  }, [currentWord, submitWord]);
+  }, [currentWord, submitWord, recentWords, onRecentWordsUpdate]);
 
   const handleClearSelection = useCallback(() => {
     clearSelection();
@@ -151,44 +160,6 @@ const WordBuilder: React.FC = () => {
         </motion.div>
       )}
 
-      {/* Score Display and Recent Words */}
-      <div className="flex flex-col gap-3">
-        <ScoreDisplay />
-        
-        <AnimatePresence>
-          {recentWords.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="ton-glass rounded-2xl p-3"
-            >
-              <h3 
-                className="text-xs font-medium mb-2"
-                style={{ color: 'var(--tg-theme-section-header-text-color)' }}
-              >
-                Найденные слова
-              </h3>
-              <div className="flex flex-wrap gap-2">
-                {recentWords.map((word, index) => (
-                  <motion.span
-                    key={`${word}-${index}`}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    className="px-2 py-1 rounded-lg text-xs font-medium"
-                    style={{
-                      backgroundColor: 'var(--tg-theme-secondary-bg-color)',
-                      color: 'var(--tg-theme-text-color)'
-                    }}
-                  >
-                    {word.toUpperCase()}
-                  </motion.span>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
       
     </div>
   );
