@@ -492,36 +492,39 @@ const GameGrid: React.FC<GameGridProps> = () => {
                 border: '1px solid rgba(148, 163, 184, 0.2)',
                 boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
               }}
-              draggable
-              onDragStart={(e) => handleDragStart(figure, e)}
-              onTouchStart={(e: React.TouchEvent) => handleDragStart(figure, e)}
               whileHover={{ scale: 1.05 }}
-              whileDrag={{ scale: 1.1, zIndex: 1000 }}
               layout
             >
-              <div 
-                className="grid gap-1"
-                style={{ 
-                  gridTemplateColumns: `repeat(${Math.max(...figure.shape.map(([_, col]) => col)) + 1}, 1fr)`,
-                  gridTemplateRows: `repeat(${Math.max(...figure.shape.map(([row, _]) => row)) + 1}, 1fr)`
-                }}
+              <div
+                draggable
+                onDragStart={(e: React.DragEvent) => handleDragStart(figure, e)}
+                onTouchStart={handleFigureTouchStart(figure)}
+                className="w-full h-full"
               >
-                {figure.shape.map(([row, col], i) => (
-                  <div
-                    key={i}
-                    className="w-8 h-8 border border-white/30 flex items-center justify-center text-sm font-bold rounded-xl shadow-sm"
-                    style={{
-                      gridColumn: col + 1,
-                      gridRow: row + 1,
-                      background: figure.letters[i] === '*' 
-                        ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
-                        : 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
-                      color: '#ffffff'
-                    }}
-                  >
-                    {figure.letters[i] === '*' ? '★' : figure.letters[i].toUpperCase()}
-                  </div>
-                ))}
+                <div 
+                  className="grid gap-1"
+                  style={{ 
+                    gridTemplateColumns: `repeat(${Math.max(...figure.shape.map(([_, col]) => col)) + 1}, 1fr)`,
+                    gridTemplateRows: `repeat(${Math.max(...figure.shape.map(([row, _]) => row)) + 1}, 1fr)`
+                  }}
+                >
+                  {figure.shape.map(([row, col], i) => (
+                    <div
+                      key={i}
+                      className="w-8 h-8 border border-white/30 flex items-center justify-center text-sm font-bold rounded-xl shadow-sm"
+                      style={{
+                        gridColumn: col + 1,
+                        gridRow: row + 1,
+                        background: figure.letters[i] === '*' 
+                          ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
+                          : 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+                        color: '#ffffff'
+                      }}
+                    >
+                      {figure.letters[i] === '*' ? '★' : figure.letters[i].toUpperCase()}
+                    </div>
+                  ))}
+                </div>
               </div>
             </motion.div>
           ))}

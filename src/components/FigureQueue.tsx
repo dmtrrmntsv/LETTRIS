@@ -55,16 +55,34 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
   };
 
   return (
-    <div className="w-full" style={{ height: '80px' }}>
-      <h3 
-        className="text-sm font-semibold mb-3 text-center tracking-wide"
+    <motion.div 
+      className="w-full" 
+      style={{ height: '120px' }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <motion.h3 
+        className="text-sm font-semibold mb-4 text-center tracking-wide"
         style={{ color: '#94a3b8' }}
+        initial={{ opacity: 0, scale: 0.9 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.2 }}
       >
         ФИГУРЫ
-      </h3>
-      <div 
+      </motion.h3>
+      <motion.div 
         className="flex justify-center gap-4 overflow-hidden"
-        style={{ height: '80px' }}
+        style={{ height: '90px' }}
+        variants={{
+          visible: {
+            transition: {
+              staggerChildren: 0.1
+            }
+          }
+        }}
+        initial="hidden"
+        animate="visible"
       >
         {queue.map((figure, index) => {
           const rotatedShape = getRotatedShape(figure);
@@ -75,88 +93,220 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
               key={figure.id}
               className="relative cursor-move touch-friendly"
               style={{
-                width: '80px',
-                height: '80px',
-                minWidth: '80px'
+                width: '90px',
+                height: '90px',
+                minWidth: '90px'
               }}
               onMouseEnter={() => setHoveredFigure(figure.id)}
               onMouseLeave={() => setHoveredFigure(null)}
-              whileHover={{ scale: 1.05 }}
-              whileDrag={{ scale: 1.1, zIndex: 1000 }}
+              variants={{
+                hidden: { opacity: 0, scale: 0.8, y: 20 },
+                visible: { opacity: 1, scale: 1, y: 0 }
+              }}
+              whileHover={{ 
+                scale: 1.08,
+                y: -5,
+                boxShadow: '0 15px 30px -5px rgba(0, 0, 0, 0.4)'
+              }}
+              whileDrag={{ 
+                scale: 1.15, 
+                zIndex: 1000,
+                rotate: 5,
+                boxShadow: '0 20px 40px -5px rgba(0, 0, 0, 0.5)'
+              }}
               layout
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 25
+              }}
             >
               {/* Rotation Controls */}
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isHovered ? 1 : 0 }}
-                className="absolute -top-1 -left-1 z-10"
+                initial={{ opacity: 0, scale: 0.8, x: -10 }}
+                animate={{ 
+                  opacity: isHovered ? 1 : 0,
+                  scale: isHovered ? 1 : 0.8,
+                  x: isHovered ? 0 : -10
+                }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="absolute -top-2 -left-2 z-10"
               >
-                <button
+                <motion.button
                   onClick={(e) => handleRotateLeft(figure.id, e)}
-                  className="w-6 h-6 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center"
-                  style={{ color: '#ffffff' }}
+                  className="w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-sm"
+                  style={{ 
+                    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.8) 100%)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}
+                  whileHover={{ 
+                    scale: 1.1,
+                    background: 'linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(50, 50, 50, 0.9) 100%)'
+                  }}
+                  whileTap={{ scale: 0.9 }}
                 >
-                  <RotateCcw className="w-3 h-3" />
-                </button>
+                  <motion.div
+                    whileHover={{ rotate: -180 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </motion.div>
+                </motion.button>
               </motion.div>
               
               <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: isHovered ? 1 : 0 }}
-                className="absolute -top-1 -right-1 z-10"
+                initial={{ opacity: 0, scale: 0.8, x: 10 }}
+                animate={{ 
+                  opacity: isHovered ? 1 : 0,
+                  scale: isHovered ? 1 : 0.8,
+                  x: isHovered ? 0 : 10
+                }}
+                transition={{ type: "spring", stiffness: 400, damping: 25 }}
+                className="absolute -top-2 -right-2 z-10"
               >
-                <button
+                <motion.button
                   onClick={(e) => handleRotateRight(figure.id, e)}
-                  className="w-6 h-6 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center"
-                  style={{ color: '#ffffff' }}
+                  className="w-7 h-7 rounded-full flex items-center justify-center backdrop-blur-sm"
+                  style={{ 
+                    background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.8) 0%, rgba(30, 30, 30, 0.8) 100%)',
+                    color: '#ffffff',
+                    border: '1px solid rgba(255, 255, 255, 0.2)'
+                  }}
+                  whileHover={{ 
+                    scale: 1.1,
+                    background: 'linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(50, 50, 50, 0.9) 100%)'
+                  }}
+                  whileTap={{ scale: 0.9 }}
                 >
-                  <RotateCw className="w-3 h-3" />
-                </button>
+                  <motion.div
+                    whileHover={{ rotate: 180 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <RotateCw className="w-4 h-4" />
+                  </motion.div>
+                </motion.button>
               </motion.div>
 
               {/* Figure Card */}
               <div
-                className="w-full h-full p-3 rounded-2xl flex items-center justify-center"
+                className="w-full h-full p-4 rounded-2xl flex items-center justify-center backdrop-blur-sm"
                 style={{
-                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(148, 163, 184, 0.2)',
-                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)'
+                  background: isHovered 
+                    ? 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)'
+                    : 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
+                  border: `1px solid ${isHovered ? 'rgba(148, 163, 184, 0.4)' : 'rgba(148, 163, 184, 0.2)'}`,
+                  boxShadow: isHovered 
+                    ? '0 15px 35px -5px rgba(0, 0, 0, 0.4)'
+                    : '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
+                  transition: 'all 0.2s ease'
                 }}
                 draggable
                 onDragStart={(e) => onFigureDragStart?.(figure, e)}
                 onTouchStart={onFigureTouchStart?.(figure)}
               >
-                <div 
+                <motion.div 
                   className="grid gap-1"
                   style={{ 
                     gridTemplateColumns: `repeat(${Math.max(...rotatedShape.map(([_, col]) => col)) + 1}, 1fr)`,
                     gridTemplateRows: `repeat(${Math.max(...rotatedShape.map(([row, _]) => row)) + 1}, 1fr)`
                   }}
+                  variants={{
+                    visible: {
+                      transition: {
+                        staggerChildren: 0.05
+                      }
+                    }
+                  }}
+                  initial="hidden"
+                  animate="visible"
                 >
                   {rotatedShape.map(([row, col], i) => (
-                    <div
+                    <motion.div
                       key={i}
-                      className="w-6 h-6 border border-white/30 flex items-center justify-center text-xs font-bold rounded-lg shadow-sm"
+                      className="w-7 h-7 border border-white/30 flex items-center justify-center text-xs font-bold rounded-xl shadow-sm"
                       style={{
                         gridColumn: col + 1,
                         gridRow: row + 1,
                         background: figure.letters[i] === '*' 
                           ? 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)' 
                           : 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
-                        color: '#ffffff'
+                        color: '#ffffff',
+                        border: `1px solid ${figure.letters[i] === '*' ? 'rgba(245, 158, 11, 0.5)' : 'rgba(8, 145, 178, 0.5)'}`
+                      }}
+                      variants={{
+                        hidden: { opacity: 0, scale: 0.5, rotate: -180 },
+                        visible: { opacity: 1, scale: 1, rotate: 0 }
+                      }}
+                      whileHover={{ 
+                        scale: 1.1,
+                        rotate: 5,
+                        boxShadow: '0 5px 15px -3px rgba(0, 0, 0, 0.3)'
+                      }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 500,
+                        damping: 25
                       }}
                     >
-                      {figure.letters[i] === '*' ? '★' : figure.letters[i].toUpperCase()}
-                    </div>
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: i * 0.1 + 0.2 }}
+                      >
+                        {figure.letters[i] === '*' ? (
+                          <motion.span
+                            animate={{ rotate: [0, 360] }}
+                            transition={{ 
+                              duration: 2,
+                              repeat: Infinity,
+                              ease: "linear"
+                            }}
+                          >
+                            ★
+                          </motion.span>
+                        ) : (
+                          figure.letters[i].toUpperCase()
+                        )}
+                      </motion.span>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               </div>
+
+              {/* Drag Indicator */}
+              <motion.div
+                className="absolute inset-0 rounded-2xl pointer-events-none"
+                initial={{ opacity: 0 }}
+                animate={{ 
+                  opacity: isHovered ? 0.1 : 0,
+                  background: isHovered 
+                    ? 'linear-gradient(45deg, transparent 30%, rgba(6, 182, 212, 0.3) 50%, transparent 70%)'
+                    : 'transparent'
+                }}
+              >
+                <motion.div
+                  className="w-full h-full rounded-2xl"
+                  animate={{
+                    background: isHovered 
+                      ? [
+                          'linear-gradient(45deg, transparent 30%, rgba(6, 182, 212, 0.1) 50%, transparent 70%)',
+                          'linear-gradient(225deg, transparent 30%, rgba(6, 182, 212, 0.1) 50%, transparent 70%)'
+                        ]
+                      : 'transparent'
+                  }}
+                  transition={{
+                    duration: 2,
+                    repeat: isHovered ? Infinity : 0,
+                    ease: "linear"
+                  }}
+                />
+              </motion.div>
             </motion.div>
           );
         })}
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

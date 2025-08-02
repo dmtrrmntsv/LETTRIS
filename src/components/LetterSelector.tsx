@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { Button } from './ui/button';
-import { Dialog, DialogContent } from './ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import { useGameStore } from '../store/gameStore';
 
 interface LetterSelectorProps {
   isOpen: boolean;
@@ -12,6 +14,7 @@ interface LetterSelectorProps {
 
 const LetterSelector: React.FC<LetterSelectorProps> = ({ isOpen, onClose, onSelectLetter }) => {
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
+  const { isJokerActive, cancelJoker } = useGameStore();
 
   // Russian alphabet organized by frequency and type
   const innerCircle = ['А', 'Е', 'И', 'О', 'У', 'Ы', 'Э', 'Ю', 'Я', 'Н', 'Т', 'С', 'Р'];
@@ -38,6 +41,10 @@ const LetterSelector: React.FC<LetterSelectorProps> = ({ isOpen, onClose, onSele
   };
 
   const handleClose = () => {
+    // If closing without selecting a letter and joker is active, cancel it
+    if (isJokerActive && !selectedLetter) {
+      cancelJoker();
+    }
     setSelectedLetter(null);
     onClose();
   };
@@ -53,6 +60,9 @@ const LetterSelector: React.FC<LetterSelectorProps> = ({ isOpen, onClose, onSele
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md p-0 bg-transparent border-none shadow-none">
+        <VisuallyHidden>
+          <DialogTitle>Выберите букву</DialogTitle>
+        </VisuallyHidden>
         <motion.div
           initial={{ scale: 0, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
