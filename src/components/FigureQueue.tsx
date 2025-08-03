@@ -33,24 +33,52 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
     const rotation = figure.rotation || 0;
     if (rotation === 0) return figure.shape;
     
-    // Apply rotation transformation
-    const centerX = Math.max(...figure.shape.map(([_, col]) => col)) / 2;
-    const centerY = Math.max(...figure.shape.map(([row, _]) => row)) / 2;
+    // Normalize to ensure we work with proper 90-degree increments
+    const normalizedRotation = ((rotation % 360) + 360) % 360;
+    
+    // Calculate bounding box to find center
+    const minRow = Math.min(...figure.shape.map(([row, _]) => row));
+    const maxRow = Math.max(...figure.shape.map(([row, _]) => row));
+    const minCol = Math.min(...figure.shape.map(([_, col]) => col));
+    const maxCol = Math.max(...figure.shape.map(([_, col]) => col));
+    
+    const centerRow = (minRow + maxRow) / 2;
+    const centerCol = (minCol + maxCol) / 2;
     
     return figure.shape.map(([row, col]) => {
-      const x = col - centerX;
-      const y = row - centerY;
+      // Translate to origin (center at 0,0)
+      const relativeRow = row - centerRow;
+      const relativeCol = col - centerCol;
       
-      switch (rotation) {
+      let newRow, newCol;
+      
+      // Apply rotation matrix for clockwise rotation
+      switch (normalizedRotation) {
         case 90:
-          return [Math.round(x + centerY), Math.round(-y + centerX)];
+          // 90° clockwise: (x,y) -> (y, -x)
+          newRow = relativeCol;
+          newCol = -relativeRow;
+          break;
         case 180:
-          return [Math.round(-x + centerY), Math.round(-y + centerX)];
+          // 180°: (x,y) -> (-x, -y)
+          newRow = -relativeRow;
+          newCol = -relativeCol;
+          break;
         case 270:
-          return [Math.round(-x + centerY), Math.round(y + centerX)];
+          // 270° clockwise: (x,y) -> (-y, x)
+          newRow = -relativeCol;
+          newCol = relativeRow;
+          break;
         default:
-          return [row, col];
+          newRow = relativeRow;
+          newCol = relativeCol;
       }
+      
+      // Translate back and round to integers
+      return [
+        Math.round(newRow + centerRow),
+        Math.round(newCol + centerCol)
+      ];
     });
   };
 
@@ -88,14 +116,19 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
           const rotatedShape = getRotatedShape(figure);
           const isHovered = hoveredFigure === figure.id;
           
+          // Calculate proper dimensions based on figure shape
+          const maxRow = Math.max(...rotatedShape.map(([row, _]) => row));
+          const maxCol = Math.max(...rotatedShape.map(([_, col]) => col));
+          const cellSize = Math.min(24, Math.max(16, 80 / Math.max(maxRow + 1, maxCol + 1)));
+          
           return (
             <motion.div
               key={figure.id}
               className="relative cursor-move touch-friendly"
               style={{
-                width: '90px',
-                height: '90px',
-                minWidth: '90px'
+                width: '120px',
+                height: '120px',
+                minWidth: '120px'
               }}
               onMouseEnter={() => setHoveredFigure(figure.id)}
               onMouseLeave={() => setHoveredFigure(null)}
@@ -224,8 +257,12 @@ const FigureQueue: React.FC<FigureQueueProps> = ({ onFigureDragStart, onFigureTo
                   {rotatedShape.map(([row, col], i) => (
                     <motion.div
                       key={i}
-                      className="w-7 h-7 border border-white/30 flex items-center justify-center text-xs font-bold rounded-xl shadow-sm"
+                      className="border border-white/30 flex items-center justify-center text-sm font-bold rounded-xl shadow-sm"
                       style={{
+                        width: `${cellSize}px`,
+                        height: `${cellSize}px`,
+                        minWidth: `${cellSize}px`,
+                        minHeight: `${cellSize}px`,
                         gridColumn: col + 1,
                         gridRow: row + 1,
                         background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',

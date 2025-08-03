@@ -42,7 +42,7 @@ interface GameState {
   init: () => void;
   placeFigure: (figure: Figure, position: { row: number; col: number }, rotation: number) => boolean;
   rotateFigure: (figureId: string, rotation: number) => void;
-  checkIn: () => void;
+  checkIn: () => boolean;
   restoreLife: () => void;
   buyLife: () => boolean;
   resetGame: () => void;
@@ -143,24 +143,52 @@ function getRotatedShape(figure: Figure, rotation: number = 0): number[][] {
   const actualRotation = rotation || figure.rotation || 0;
   if (actualRotation === 0) return figure.shape;
   
-  // Apply rotation transformation
-  const centerX = Math.max(...figure.shape.map(([_, col]) => col)) / 2;
-  const centerY = Math.max(...figure.shape.map(([row, _]) => row)) / 2;
+  // Normalize to ensure we work with proper 90-degree increments
+  const normalizedRotation = ((actualRotation % 360) + 360) % 360;
+  
+  // Calculate bounding box to find center
+  const minRow = Math.min(...figure.shape.map(([row, _]) => row));
+  const maxRow = Math.max(...figure.shape.map(([row, _]) => row));
+  const minCol = Math.min(...figure.shape.map(([_, col]) => col));
+  const maxCol = Math.max(...figure.shape.map(([_, col]) => col));
+  
+  const centerRow = (minRow + maxRow) / 2;
+  const centerCol = (minCol + maxCol) / 2;
   
   return figure.shape.map(([row, col]) => {
-    const x = col - centerX;
-    const y = row - centerY;
+    // Translate to origin (center at 0,0)
+    const relativeRow = row - centerRow;
+    const relativeCol = col - centerCol;
     
-    switch (actualRotation) {
+    let newRow, newCol;
+    
+    // Apply rotation matrix for clockwise rotation
+    switch (normalizedRotation) {
       case 90:
-        return [Math.round(x + centerY), Math.round(-y + centerX)];
+        // 90° clockwise: (x,y) -> (y, -x)
+        newRow = relativeCol;
+        newCol = -relativeRow;
+        break;
       case 180:
-        return [Math.round(-x + centerY), Math.round(-y + centerX)];
+        // 180°: (x,y) -> (-x, -y)
+        newRow = -relativeRow;
+        newCol = -relativeCol;
+        break;
       case 270:
-        return [Math.round(-x + centerY), Math.round(y + centerX)];
+        // 270° clockwise: (x,y) -> (-y, x)
+        newRow = -relativeCol;
+        newCol = relativeRow;
+        break;
       default:
-        return [row, col];
+        newRow = relativeRow;
+        newCol = relativeCol;
     }
+    
+    // Translate back and round to integers
+    return [
+      Math.round(newRow + centerRow),
+      Math.round(newCol + centerCol)
+    ];
   });
 }
 

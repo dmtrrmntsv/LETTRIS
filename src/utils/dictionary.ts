@@ -167,6 +167,28 @@ export function scanWords(grid: any[][]): Array<{
   return wordsFound;
 }
 
+// Check if a letter has any neighbors (adjacent cells with letters)
+function hasNeighbors(grid: any[][], row: number, col: number): boolean {
+  const directions = [
+    [-1, -1], [-1, 0], [-1, 1], // top row
+    [0, -1],           [0, 1],  // same row
+    [1, -1],  [1, 0],  [1, 1]   // bottom row
+  ];
+  
+  for (const [dr, dc] of directions) {
+    const newRow = row + dr;
+    const newCol = col + dc;
+    
+    if (newRow >= 0 && newRow < grid.length && 
+        newCol >= 0 && newCol < grid[0].length &&
+        grid[newRow][newCol]?.letter) {
+      return true;
+    }
+  }
+  
+  return false;
+}
+
 export function applyGravity(grid: any[][]): { 
   newGrid: any[][], 
   animations: Array<{ from: {row: number, col: number}, to: {row: number, col: number}, letter: string }> 
@@ -176,23 +198,48 @@ export function applyGravity(grid: any[][]): {
   const colSize = newGrid[0]?.length || 0;
   const animations: Array<{ from: {row: number, col: number}, to: {row: number, col: number}, letter: string }> = [];
   
-  for (let col = 0; col < colSize; col++) {
-    let writeRow = gridSize - 1; // Start from bottom
+  // First, identify isolated letters (letters without neighbors)
+  const isolatedLetters: Array<{row: number, col: number, letter: string}> = [];
+  
+  for (let row = 0; row < gridSize; row++) {
+    for (let col = 0; col < colSize; col++) {
+      if (newGrid[row][col]?.letter && !hasNeighbors(newGrid, row, col)) {
+        isolatedLetters.push({
+          row,
+          col, 
+          letter: newGrid[row][col].letter
+        });
+        // Remove the isolated letter from its current position
+        newGrid[row][col] = { letter: null, isFixed: false, isHovered: false };
+      }
+    }
+  }
+  
+  // Apply gravity only to isolated letters, column by column
+  for (const isolated of isolatedLetters) {
+    const col = isolated.col;
     
-    for (let row = gridSize - 1; row >= 0; row--) {
-      if (newGrid[row] && newGrid[row][col] && newGrid[row][col].letter) {
-        if (writeRow !== row) {
-          // Record animation for this letter
-          animations.push({
-            from: { row, col },
-            to: { row: writeRow, col },
-            letter: newGrid[row][col].letter
-          });
-          
-          newGrid[writeRow][col] = { ...newGrid[row][col] };
-          newGrid[row][col] = { letter: null, isFixed: false, isHovered: false };
-        }
-        writeRow--;
+    // Find the lowest available position in this column
+    let targetRow = gridSize - 1;
+    while (targetRow >= 0 && newGrid[targetRow][col]?.letter) {
+      targetRow--;
+    }
+    
+    if (targetRow >= 0) {
+      // Place the isolated letter at the lowest available position
+      newGrid[targetRow][col] = { 
+        letter: isolated.letter, 
+        isFixed: true, 
+        isHovered: false 
+      };
+      
+      // Record animation only if the letter actually moved
+      if (targetRow !== isolated.row) {
+        animations.push({
+          from: { row: isolated.row, col: isolated.col },
+          to: { row: targetRow, col: isolated.col },
+          letter: isolated.letter
+        });
       }
     }
   }
